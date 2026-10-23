@@ -87,6 +87,8 @@ Button(action: addStation) {
 | 行悬停 | 整行命中，复用系统选择背景，6 pt 圆角；文字和图标随悬停获得合适对比度 |
 | 菜单栏天线 | 18×18 pt template 图标；可选慢动画、默认静态，遵守减少动态效果 |
 
+主菜单随可见电台集合变化重新测量自然高度，不能沿用隐藏前的窗口高度并将较短内容居中。2.0.3 已更新菜单场景与内容身份的刷新路径，用户已确认短列表问题修复；验证范围见 TESTING。
+
 主菜单背景显式使用原生 `NSVisualEffectView` 的 `.menu` 材质、`.behindWindow` 混合和 `.active` 状态；外观跟随宿主窗口，背景覆盖完整内容且不接收输入。真实通透程度须用桌面上的原生窗口验收，实色背景的离屏预览仅检查布局。
 
 状态文字保持中性，颜色集中在圆点：播放绿、暂停灰、连接/缓冲橙、错误红，具体状态映射复用 `menuStatusTint`。浅色菜单主文字沿用 #252525，深色使用系统 controlTextColor；不要为新增一行另起配色规则。
@@ -191,7 +193,7 @@ Button(action: addStation) {
 
 ## 7. 外观、文案与可访问性
 
-- 以窗口 effectiveAppearance 为准，通过现有 radioAppearance 同步 SwiftUI；不要重新引入 preferredColorScheme 与窗口外观相互竞争的实现。嵌套 AppKit/SwiftUI 电台行继续传递 colorScheme 与 controlActiveState。
+- 以窗口 effectiveAppearance 为准，通过现有 radioAppearance 同步 SwiftUI；不要重新引入 preferredColorScheme 与窗口外观相互竞争的实现。复用菜单窗口再次显示、App 激活及设置关闭后，继续核对当前外观选择；跟随系统须清除显式窗口覆盖，材质、原生控件与 SwiftUI 内容应保持一致。嵌套 AppKit/SwiftUI 电台行继续传递 colorScheme 与 controlActiveState。
 - 复用 SettingsColors、系统 controlBackgroundColor 和 secondary/tertiary 等语义色。文档中的现有浅色菜单特例不是为所有控件硬编码颜色的许可。
 - SF Symbols 统一使用常规字重。新增图标需与同组图形的视觉尺寸、基线和占位对齐；装饰图标不重复朗读，纯图标操作必须提供动作及对象名称。
 - 中文使用“电台”，英文使用 Station / Stations；菜单与播放状态使用 menuName，完整名称和频率使用现有模型，不能新建一份容易漂移的简称表。

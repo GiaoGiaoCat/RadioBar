@@ -11,6 +11,12 @@ struct RadioReleaseNote: Identifiable {
 /// Detailed 1.x records remain only in the local pre-reinitialization backup.
 enum RadioReleaseNotes {
     static let entries: [RadioReleaseNote] = [
+        RadioReleaseNote(version: "2.0.4", title: RadioText("2.0.4", "2.0.4"), changes: [
+            RadioText("修复电台较少时菜单上下的灰色空白，并补全菜单重新展开、App 激活和设置窗口切换时的外观同步；保持现有配色与布局。", "Fix gray gaps around shorter station lists and keep appearance synchronized when reopening the menu, activating the app and switching to and from Settings, preserving existing colors and layout."),
+        ]),
+        RadioReleaseNote(version: "2.0.3", title: RadioText("2.0.3", "2.0.3"), changes: [
+            RadioText("修复隐藏电台后菜单沿用旧高度、上下出现灰色空白的问题，菜单随可见电台数量自然调整。", "Fix stale menu height and gray gaps after hiding stations, letting the menu resize to the visible station list."),
+        ]),
         RadioReleaseNote(version: "2.0.2", title: RadioText("2.0.2", "2.0.2"), changes: [
             RadioText("加密打包 KISS 与央广内置地址，提高直接提取地址的门槛，保留现有播放和重试行为。", "Encrypt bundled KISS and CNR addresses to make direct extraction harder, preserving playback and retry behavior."),
         ]),

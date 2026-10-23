@@ -9,7 +9,7 @@ views = source[start:]
 views = views.replace('private struct RadioMenuView:', 'struct CapturedMenuView:')
 views = views.replace('private struct RadioMenuBarLabel:', 'struct CapturedMenuBarLabel:')
 # Measure both content edges without adding layout constraints in the preview.
-views = views.replace('Text("RadioBar")', 'Text("RadioBar").background(MenuBoundsProbe(name: "menuHeaderProbe"))')
+views = views.replace('Text("RadioBar")', 'Text("RadioBar").background(MenuBoundsProbe(name: "menuHeaderProbe")).background(MenuColorSchemeProbe().allowsHitTesting(false))')
 views = views.replace('.keyboardShortcut("q")', '.keyboardShortcut("q").background(MenuBoundsProbe(name: "menuBottomProbe"))')
 hover_property = '@MenuState private var hovered = false'
 assert views.count(hover_property) == 1

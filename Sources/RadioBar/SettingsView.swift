@@ -32,6 +32,9 @@ private struct AppearanceWindowBridge: NSViewRepresentable {
     final class AppearanceView: NSView {
         var state: WindowAppearanceState?
         private var observation: NSKeyValueObservation?
+        private var overrideObservation: NSKeyValueObservation?
+        private var observers: [NSObjectProtocol] = []
+        private var refreshPending = false
         var choice: AppAppearance = .system {
             didSet { applyAppearance() }
         }
@@ -50,16 +53,50 @@ private struct AppearanceWindowBridge: NSViewRepresentable {
                 if state.colorScheme != scheme { state.colorScheme = scheme }
             }
         }
+        private func scheduleAppearanceRefresh() {
+            guard !refreshPending else { return }
+            refreshPending = true
+            // Native presentation/activation can change a reused window after
+            // SwiftUI has updated it. Reconcile after that work, using the latest
+            // window and choice instead of retaining a previous presentation.
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.refreshPending = false
+                self.applyAppearance()
+            }
+        }
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
+            observation = nil
+            overrideObservation = nil
+            observers.forEach(NotificationCenter.default.removeObserver)
+            observers.removeAll()
             observation = window?.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
-                self?.refreshScheme()
+                self?.scheduleAppearanceRefresh()
+            }
+            overrideObservation = window?.observe(\.appearance, options: [.new]) { [weak self] _, _ in
+                // An explicit override may change without changing the resolved
+                // colors. System mode must still release that override.
+                self?.scheduleAppearanceRefresh()
+            }
+            if let window {
+                for name in [NSWindow.didBecomeKeyNotification, NSWindow.didChangeOcclusionStateNotification] {
+                    observers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                        MainActor.assumeIsolated { self?.scheduleAppearanceRefresh() }
+                    })
+                }
+                observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification,
+                                                                         object: NSApp, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.scheduleAppearanceRefresh() }
+                })
             }
             applyAppearance()
+            scheduleAppearanceRefresh()
         }
+        deinit { observers.forEach(NotificationCenter.default.removeObserver) }
         override func viewDidChangeEffectiveAppearance() {
             super.viewDidChangeEffectiveAppearance()
-            refreshScheme()
+            scheduleAppearanceRefresh()
         }
     }
     func makeNSView(context: Context) -> AppearanceView {

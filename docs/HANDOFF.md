@@ -1,10 +1,10 @@
 # RadioBar 开发交接
 
-更新日期：2026-10-23（Asia/Shanghai）。当前本地源码 **2.0.2（109）**，内置地址改为 AES-GCM 加密资源及混淆密钥材料；本地测试和构建已完成，用户已授权提交、推送 `main` 及 `v2.0.2`，由 Actions 构建发布；按用户要求不核对最终远端结果，由用户自行安装更新。远端状态以 Git 与 Actions 为准。继续开发前核对 `Resources/Info.plist`、Git 状态与实际 diff。
+更新日期：2026-10-24（Asia/Shanghai）。当前本地源码 **2.0.4（111）**，补全复用菜单窗口重新显示、App 激活及设置窗口切换时的外观同步，保持现有配色、菜单材质及布局；本地验证已完成，用户已授权提交并推送 `main` 与 `v2.0.4`，由 Actions 构建发布，安装更新由用户自行完成。发布结果以远端 Actions / Release 为准，验证范围见 TESTING。用户已确认 2.0.3 短列表灰色空白修复生效；随后出现的肉眼偏暗现象在退出重开 RadioBar 后恢复，本轮未据此认定其根因。此前 2.0.2 的发布结果按用户要求由其自行核对。继续开发前核对 `Resources/Info.plist`、Git 状态与实际 diff。
 
 ## 1. 工作入口与新仓库状态
 
-用户指定同名重建并从 2.0.0 开始维护。当前 `/Users/victor/Github/RadioBar` 使用全新 Git，`main` 以无父提交的 2.0.0 初始化版本为基线，`origin` 为 `git@github.com:GiaoGiaoCat/RadioBar.git`。已核对远端 `v2.0.0` 发布成功，2.0.1 切台改动也已提交至当前 main；本轮已获 2.0.2 提交、推送与标签发布授权。不再执行远端删除或重建。重建过程见 [REPOSITORY_REBUILD](REPOSITORY_REBUILD.md)。
+用户指定同名重建并从 2.0.0 开始维护。当前 `/Users/victor/Github/RadioBar` 使用全新 Git，`main` 以无父提交的 2.0.0 初始化版本为基线，`origin` 为 `git@github.com:GiaoGiaoCat/RadioBar.git`。已核对远端 `v2.0.0` 发布成功，2.0.1 切台改动也已提交至当前 main；本轮已获 2.0.4 提交、推送与标签发布授权，2.0.3 仅为本地验证版、不单独发布。不再执行远端删除或重建。重建过程见 [REPOSITORY_REBUILD](REPOSITORY_REBUILD.md)。
 
 重建前源码和完整旧 Git 仅备份一份，位于被忽略的 `private/repository-rebuild-20261023-154311/RadioBar-before-reinit/`。其他五个旧工作目录（含有未提交工作的 iOS 工程）仍关联此备份；已修复指针并核对内容。不要删除／移动备份或从旧目录向同名新仓库推送旧历史。`private/` 不进入首次提交；完整 1.x 文档也在该备份中，新仓库不再保留开发流水账。
 
@@ -97,7 +97,7 @@ loveRadio, classic947, radioParadise, grooveSalad, swissJazz
 
 ## 7. 界面与待验收方向
 
-复用 [UI_GUIDELINES](UI_GUIDELINES.md) 的现有组件、尺寸、字重、快捷键、布局和反馈。电台列表的标题、说明、排序和添加共用卡片；设置提示按需显示；关于页保持居中布局与默认折叠日志。主菜单紧凑且状态切换保持自然高度，详细失败原因位于诊断页。
+复用 [UI_GUIDELINES](UI_GUIDELINES.md) 的现有组件、尺寸、字重、快捷键、布局和反馈。电台列表的标题、说明、排序和添加共用卡片；设置提示按需显示；关于页保持居中布局与默认折叠日志。主菜单紧凑且状态切换保持自然高度，详细失败原因位于诊断页。2.0.3 让设置变化到达菜单场景，并在可见电台集合变化时刷新内容身份，以重新测量窗口高度；保留材质、间距和行高，不直接设置窗口尺寸或位置。原安装版诊断曾记录 424 pt 窗口容纳 328 pt 内容、上下各空 48 pt，用户已确认短列表问题修复。2.0.4 补全共享外观桥接的窗口重开／激活核对与原生 override 变化观察，系统模式释放显式覆盖；不改背景或 Dock 策略。此前肉眼偏暗、截图正常的现象仅确认退出重开 App 可恢复，专项验证不能替代该现象的实际复验。
 
 直播源主观响度差异尚未确认为 bug。现有增益证据见 [volume-audit](evidence/volume-audit-1.0.47.txt)，不据此推断直播响度；保留现有曲线，不增加补偿。实机交互、长期播放和双端同步边界统一见 TESTING。
 
@@ -107,18 +107,18 @@ loveRadio, classic947, radioParadise, grooveSalad, swissJazz
 
 按 [TESTING](TESTING.md#按改动选择验证) 选择专项；完整离线入口是 `./test.sh`，不是 `swift test`。新增／移动生产源码同步 Xcode Sources 和显式测试清单。图形会话、宏插件、文件协调或回环服务受限时，报告实际通过的范围与环境边界。
 
-用户指定初始化版本为 2.0.0，构建号延续为 107，不重置；后续默认递增 2.0.X 和构建号。当前 2.0.2（109）已同步 Info.plist、双语日志与 CHANGELOG，并完成本地验证。用户已授权提交、先推 `main`，再创建／推送 `v2.0.2`，由现有工作流构建、签名并发布；明确要求不代为检查最终结果，自行安装更新。不要恢复旧标签或镜像推送旧 Git。
+用户指定初始化版本为 2.0.0，构建号延续为 107，不重置；后续默认递增 2.0.X 和构建号。当前 2.0.4（111）已同步 Info.plist、双语日志与 CHANGELOG，包含未独立发布的 2.0.3 短列表修复；用户已授权提交，先推 `main` 再创建／推送 `v2.0.4`，由 Actions 构建发布，用户自行安装更新。此前 2.0.2 已按授权推送 `main` 与 `v2.0.2`，由现有工作流构建、签名并发布；用户明确要求不代为检查该版本最终结果，自行安装更新。不要恢复旧标签或镜像推送旧 Git。
 
 Actions 的 tag 工作流校验版本、构建、解压验签、生成校验文件与四份签名 appcast，上传草稿后再正式发布。使用自动 `GITHUB_TOKEN` 和以下三个 Repository Secrets，无需额外 PAT：
 
 - `KISS_STREAM_URL`、`CNR_STREAM_URL`：完整固定地址。
 - `SPARKLE_PRIVATE_KEY`：原更新私钥，本机登录钥匙串 account 为 `local.victor.RadioBar`；对应公钥保留在 Info.plist。旧仓库 Secret 不可读回，同名新仓库需重新配置。不要输出、提交、重新生成或擅自更换密钥。
 
-更新组件仍为 Sparkle 2.10.0；生产源为 `https://github.com/GiaoGiaoCat/RadioBar/releases/latest/download/appcast.xml` 及语言变体。签名验证涵盖 feed、说明及 ZIP。按需运行本地签名／更新专项，配置远端 Secret 不是日常测试步骤。推送成功不代表 Actions 或发布成功；后续交付还需核对远端附件和更新源。已核对 [v2.0.0 Actions](https://github.com/GiaoGiaoCat/RadioBar/actions/runs/39924375663) 成功及正式 Release 的六份附件；本次 `v2.0.2` 最终结果由用户自行核对，不把标签推送成功记录为发布成功。
+更新组件仍为 Sparkle 2.10.0；生产源为 `https://github.com/GiaoGiaoCat/RadioBar/releases/latest/download/appcast.xml` 及语言变体。签名验证涵盖 feed、说明及 ZIP。按需运行本地签名／更新专项，配置远端 Secret 不是日常测试步骤。推送成功不代表 Actions 或发布成功；后续交付还需核对远端附件和更新源。已核对 [v2.0.0 Actions](https://github.com/GiaoGiaoCat/RadioBar/actions/runs/39924375663) 成功及正式 Release 的六份附件；此前 `v2.0.2` 最终结果由用户自行核对；本轮按授权核对 [v2.0.4 Release](https://github.com/GiaoGiaoCat/RadioBar/releases/tag/v2.0.4) 及对应 Actions，不把标签推送成功记录为发布成功。
 
 ## 9. 当前验证与限制
 
-测试、构建、资源注入和真实播放范围见 [TESTING](TESTING.md)。当前 2.0.2 新增加密生成／加载专项、完整离线回归、三种构建入口及包内明文排除检查，结果以 TESTING 为准；2.0.1 的 2.5 秒切台行为保持。KISS / 央广曾经用户实际播放确认，但不能据此认定本轮切台听感、全部电台、长时间稳定性、真实鼠标或双端同步已验收；iPhone 需求文档中的 8 秒行为仍描述其原有基线，本轮未修改 iPhone 工作目录。
+测试、构建、资源注入和真实播放范围见 [TESTING](TESTING.md)。本轮 2.0.4 验证菜单重开、隐藏期间切外观、关闭设置后同步、系统跟随与宿主覆盖恢复，配合菜单／设置预览、Dock 回归和正式构建；2.0.2 的加密专项及 2.0.1 的 2.5 秒切台行为保持，未因本轮视觉修改重复音频或联网回归。结果和安装版待验收范围以 TESTING 为准。KISS / 央广曾经用户实际播放确认，但不能据此认定本轮切台听感、全部电台、长时间稳定性、真实鼠标或双端同步已验收；iPhone 需求文档中的 8 秒行为仍描述其原有基线，本轮未修改 iPhone 工作目录。
 
 ## 10. 未选定需求
 

@@ -45,7 +45,7 @@ struct RadioBarApp: App {
         let preferences = AppSettings()
         preferences.enableStationSync()
         _radio = MenuState(initialValue: player)
-        _settings = MenuState(initialValue: preferences)
+        _settings = StateObject(wrappedValue: preferences)
         _signal = MenuState(initialValue: MenuBarSignal(radio: player, settings: preferences))
         appDelegate.settings = preferences
         appDelegate.timer = player.sleepTimer
@@ -53,16 +53,19 @@ struct RadioBarApp: App {
 
     @NSApplicationDelegateAdaptor(RadioBarApplicationDelegate.self) private var appDelegate
 
-    // Own the reference lifetimes here; observe changes only inside the views.
     // Playback ticks and icon animation must not invalidate MenuBarExtra's scene.
+    // Settings must reach the scene so a changed station list updates its size.
     @MenuState private var radio: RadioPlayer
     @MenuState private var signal: MenuBarSignal
-    @MenuState private var settings: AppSettings
+    @StateObject private var settings: AppSettings
     var body: some Scene {
         MenuBarExtra {
             RadioMenuView(radio: radio, settings: settings) { page in
                 appDelegate.settingsWindow.show(settings: settings, timer: radio.sleepTimer, page: page)
             }
+            // The native extra can retain the previous presentation's height
+            // while hidden. Give a changed list a fresh content identity.
+            .id(settings.visibleStations.map(\.id))
         } label: {
             RadioMenuBarLabel(signal: signal, radio: radio, settings: settings)
         }.menuBarExtraStyle(.window)

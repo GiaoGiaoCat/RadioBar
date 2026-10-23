@@ -34,6 +34,22 @@ private struct MenuBoundsProbe: NSViewRepresentable {
     func updateNSView(_ view: NSView, context: Context) {}
 }
 
+/// Read inside the production menu's radioAppearance scope, without drawing or
+/// altering its layout. Native appearance alone cannot prove SwiftUI agrees.
+private struct MenuColorSchemeProbe: NSViewRepresentable {
+    @Environment(\.colorScheme) private var colorScheme
+    final class Probe: NSView {
+        var colorScheme: ColorScheme = .light
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    }
+    func makeNSView(context: Context) -> Probe {
+        let view = Probe()
+        view.colorScheme = colorScheme
+        return view
+    }
+    func updateNSView(_ view: Probe, context: Context) { view.colorScheme = colorScheme }
+}
+
 // An isolated real MenuBarExtra using the same extracted production views.
 // Playback state is simulated; the production toggle/pause actions still run.
 @MainActor
@@ -52,6 +68,10 @@ private final class MenuLiveFixture {
     private var lastReport = ""
     private var step = 0
     private var layoutResults: [String] = []
+    private let appearanceSettingsController = SettingsWindowController()
+    private weak var appearanceMenuWindow: NSWindow?
+    private weak var appearanceSettingsWindow: NSWindow?
+    private var simulatedSystemAppearance: NSAppearance.Name = .aqua
     init() {
         let suite = "RadioBar.MenuLivePreview.\(UUID().uuidString)"
         defaultsSuite = suite
@@ -62,6 +82,8 @@ private final class MenuLiveFixture {
         defaults.set(Station.musicRadio.rawValue, forKey: "station")
         let clock = self.clock
         let labelAutomatic = ProcessInfo.processInfo.environment["RADIOBAR_MENU_LABEL_AUTORUN"] == "1"
+        let appearanceAutomatic = ProcessInfo.processInfo.environment["RADIOBAR_MENU_APPEARANCE_AUTORUN"] == "1"
+        if appearanceAutomatic { NSApp.appearance = NSAppearance(named: simulatedSystemAppearance) }
         radio = RadioPlayer(resolver: resolver, defaults: defaults,
                             sleepClockNow: { labelAutomatic ? clock.now : ContinuousClock().now })
         settings = AppSettings(defaults: defaults, loginManager: MenuPreviewLogin())
@@ -88,7 +110,7 @@ private final class MenuLiveFixture {
                 self.radio.statusText = RadioText("播放中", "Playing")
             }
         }
-        let interval = ProcessInfo.processInfo.environment["RADIOBAR_MENU_AUTORUN"] == "1" || labelAutomatic ? 0.2 : 0.5
+        let interval = ProcessInfo.processInfo.environment["RADIOBAR_MENU_AUTORUN"] == "1" || labelAutomatic || appearanceAutomatic ? 0.2 : 0.5
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.recordGeometry() }
         }
@@ -105,6 +127,156 @@ private final class MenuLiveFixture {
             return view.subviews.lazy.compactMap { find($0) }.first
         }
         return NSApp.windows.lazy.compactMap { $0.contentView.flatMap(find) }.first
+    }
+    private func recordAppearance() {
+        if step == 2 { statusButton()?.performClick(nil) }
+        // The first status-button presentation enters event tracking. As with
+        // the geometry mode, let it settle before reusing the native window.
+        let phase = step - 24
+        func system(_ name: NSAppearance.Name) {
+            simulatedSystemAppearance = name
+            NSApp.appearance = NSAppearance(named: name)
+        }
+        if phase == 40 {
+            // Check before ordering the window front: an unrelated SwiftUI
+            // update during presentation must not conceal a retained override.
+            checkAppearance(name: "injected-same-color-system-hidden", expectedVisible: false)
+        }
+        switch phase {
+        case 1:
+            settings.appearance = .system
+            menuWindow()?.makeKeyAndOrderFront(nil)
+        case 4, 8, 12, 18, 22, 28, 34:
+            menuWindow()?.orderOut(nil)
+        case 5: settings.appearance = .dark
+        case 9: settings.appearance = .light
+        case 13:
+            settings.appearance = .system
+            system(.darkAqua)
+        case 6, 10, 14, 20, 26, 32, 36, 40, 44, 48:
+            menuWindow()?.makeKeyAndOrderFront(nil)
+        case 16: system(.aqua)
+        case 19: system(.darkAqua)
+        case 23:
+            appearanceSettingsController.configure(settings: settings)
+            appearanceSettingsController.show(settings: settings, timer: radio.sleepTimer, page: .general)
+            appearanceSettingsWindow = appearanceSettingsController.window
+            settings.appearance = .light
+        case 25, 31: appearanceSettingsController.window?.performClose(nil)
+        case 29:
+            appearanceSettingsController.show(settings: settings, timer: radio.sleepTimer, page: .general)
+            settings.appearance = .dark
+        case 35:
+            // Deliberate stale-host injection validates recovery on reopen. It
+            // does not reproduce or explain the user's physical-screen symptom.
+            menuWindow()?.appearance = NSAppearance(named: .aqua)
+        case 38:
+            menuWindow()?.orderOut(nil)
+            settings.appearance = .system
+            system(.darkAqua)
+        case 39:
+            // Same resolved color, but system mode must clear this override.
+            menuWindow()?.appearance = NSAppearance(named: .darkAqua)
+        case 42:
+            menuWindow()?.orderOut(nil)
+            settings.appearance = .light
+        case 43:
+            menuWindow()?.appearance = NSAppearance(named: .darkAqua)
+        case 46:
+            menuWindow()?.orderOut(nil)
+            settings.appearance = .system
+            system(.aqua)
+        case 47:
+            menuWindow()?.appearance = NSAppearance(named: .darkAqua)
+        case 50: system(.darkAqua)
+        case 52: system(.aqua)
+        default: break
+        }
+        let checks = [
+            3: "initial-system-light", 7: "hidden-to-dark", 11: "hidden-to-light",
+            15: "hidden-to-system-dark", 17: "visible-system-to-light", 21: "hidden-system-to-dark",
+            27: "settings-light-close-reopen", 33: "settings-dark-close-reopen",
+            37: "injected-light-override-with-dark-choice", 41: "injected-same-color-system-override",
+            45: "injected-dark-override-with-light-choice", 49: "injected-dark-override-with-system-light",
+            51: "visible-system-to-dark", 53: "visible-system-back-to-light"
+        ]
+        if let name = checks[phase] { checkAppearance(name: name) }
+        if phase == 54 {
+            timer?.invalidate()
+            timer = nil
+            let passed = layoutResults.count == checks.count + 1 && layoutResults.allSatisfy { $0.hasPrefix("PASS:") }
+            let header = "Native appearance integration; isolated preferences and simulated NSApp appearance.\nStale-host overrides are deliberate injections, not a reproduction of the physical-screen symptom.\nContent caches do not verify desktop glass compositing or real mouse interaction.\n"
+            let output = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("menu-appearance-result.txt")
+            try? (header + layoutResults.joined(separator: "\n") + "\n").write(to: output, atomically: true, encoding: .utf8)
+            appearanceSettingsController.window?.performClose(nil)
+            radio.pause()
+            resolver.cancelPending()
+            UserDefaults(suiteName: defaultsSuite)?.removePersistentDomain(forName: defaultsSuite)
+            if !passed {
+                FileHandle.standardError.write(Data("FAIL: Native appearance validation; see menu-appearance-result.txt\n".utf8))
+                exit(EXIT_FAILURE)
+            }
+            NSApp.terminate(nil)
+        }
+    }
+    private func checkAppearance(name: String, expectedVisible: Bool = true) {
+        func find(_ identifier: String, in view: NSView) -> NSView? {
+            if view.identifier?.rawValue == identifier { return view }
+            return view.subviews.lazy.compactMap { find(identifier, in: $0) }.first
+        }
+        func schemeProbe(in view: NSView) -> MenuColorSchemeProbe.Probe? {
+            if let probe = view as? MenuColorSchemeProbe.Probe { return probe }
+            return view.subviews.lazy.compactMap { schemeProbe(in: $0) }.first
+        }
+        func effects(in view: NSView) -> [NSVisualEffectView] {
+            ((view as? NSVisualEffectView).map { [$0] } ?? []) + view.subviews.flatMap { effects(in: $0) }
+        }
+        guard let menu = menuWindow(), menu.isVisible == expectedVisible, let host = menu.contentView,
+              let header = find("menuHeaderProbe", in: host), let bottom = find("menuBottomProbe", in: host),
+              let backdrop = find("radioMenuBackground", in: host) as? NSVisualEffectView,
+              let probe = schemeProbe(in: host) else {
+            layoutResults.append("INCOMPLETE: \(name), native menu/background/SwiftUI probe unavailable")
+            return
+        }
+        if appearanceMenuWindow == nil { appearanceMenuWindow = menu }
+        let expected = settings.appearance.nativeAppearance?.name ?? simulatedSystemAppearance
+        let nativeMatches = menu.appearance?.name == settings.appearance.nativeAppearance?.name
+            && menu.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == expected
+        let materialMatches = backdrop.material == .menu && backdrop.blendingMode == .behindWindow
+            && backdrop.state == .active && backdrop.appearance == nil
+        let effectsMatch = effects(in: host).allSatisfy {
+            $0.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == expected
+        }
+        let schemeMatches = probe.colorScheme == (expected == .darkAqua ? ColorScheme.dark : .light)
+        let headerRect = header.convert(header.bounds, to: host)
+        let bottomRect = bottom.convert(bottom.bounds, to: host)
+        let topInset = host.isFlipped ? headerRect.minY : host.bounds.height - headerRect.maxY
+        let bottomInset = host.isFlipped ? host.bounds.height - bottomRect.maxY : bottomRect.minY
+        let expectedHeight = CGFloat(208 + 24 * settings.visibleStations.count)
+        let presentedHeight = host.layer?.presentation()?.bounds.height ?? host.bounds.height
+        let backgroundRect = backdrop.convert(backdrop.bounds, to: host)
+        let geometryMatches = abs(menu.frame.height - expectedHeight) < 0.5
+            && abs(presentedHeight - expectedHeight) < 0.5
+            && abs(topInset - 9) < 0.5 && abs(bottomInset - 5) < 0.5
+            && abs(backgroundRect.minX) < 0.5 && abs(backgroundRect.minY) < 0.5
+            && abs(backgroundRect.width - host.bounds.width) < 0.5
+            && abs(backgroundRect.height - host.bounds.height) < 0.5
+        let inputPasses = backdrop.hitTest(NSPoint(x: 128, y: 12)) == nil
+        let appUnchanged = NSApp.appearance?.name == simulatedSystemAppearance
+        let settingsClosed = !name.hasPrefix("settings-") || (
+            appearanceSettingsController.window === appearanceSettingsWindow
+            && appearanceSettingsWindow?.isVisible == false
+            && appearanceSettingsWindow?.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == expected
+            && NSApp.activationPolicy() == .accessory)
+        let reusedWindow = menu === appearanceMenuWindow
+        let valid = nativeMatches && materialMatches && effectsMatch && schemeMatches && geometryMatches
+            && inputPasses && appUnchanged && settingsClosed && reusedWindow
+        layoutResults.append("\(valid ? "PASS" : "FAIL"): \(name) visible=\(menu.isVisible) choice=\(settings.appearance.rawValue) expected=\(expected.rawValue) native=\(nativeMatches) effects=\(effectsMatch) swiftUI=\(schemeMatches) material=\(materialMatches) geometry=\(geometryMatches) input=\(inputPasses) appUnchanged=\(appUnchanged) settingsClosed=\(settingsClosed) reusedWindow=\(reusedWindow)")
+        if let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+            menu.effectiveAppearance.performAsCurrentDrawingAppearance { host.cacheDisplay(in: host.bounds, to: bitmap) }
+            let output = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("menu-appearance-\(name).png")
+            try? bitmap.representation(using: .png, properties: [:])?.write(to: output)
+        }
     }
     private func recordLabelGeometry() {
         if step % 2 == 1 {
@@ -152,6 +324,10 @@ private final class MenuLiveFixture {
     }
     private func recordGeometry() {
         step += 1
+        if ProcessInfo.processInfo.environment["RADIOBAR_MENU_APPEARANCE_AUTORUN"] == "1" {
+            recordAppearance()
+            return
+        }
         if ProcessInfo.processInfo.environment["RADIOBAR_MENU_LABEL_AUTORUN"] == "1" {
             recordLabelGeometry()
             return
@@ -210,10 +386,17 @@ private final class MenuLiveFixture {
             case 36: settings.appearance = .dark
             case 38: settings.appearance = .light
             case 40: settings.appearance = .system
+            case 42, 46, 50, 54, 58, 62: menuWindow()?.orderOut(nil)
+            case 43, 47, 51, 55, 59, 63:
+                let count = [43: 12, 47: 5, 51: 1, 55: 12, 59: 5, 63: 7][step]!
+                for (index, station) in Station.allCases.enumerated() {
+                    settings.setStationVisible(station, index < count)
+                }
+            case 44, 48, 52, 56, 60, 64: menuWindow()?.makeKeyAndOrderFront(nil)
             default: break
             }
         }
-        if automatic && [9, 13, 17, 21, 25, 27, 31, 35, 37, 39, 41].contains(step) {
+        if automatic && [9, 13, 17, 21, 25, 27, 31, 35, 37, 39, 41, 45, 49, 53, 57, 61, 65].contains(step) {
             func find(_ identifier: String, in view: NSView) -> NSView? {
                 if view.identifier?.rawValue == identifier { return view }
                 return view.subviews.lazy.compactMap { find(identifier, in: $0) }.first
@@ -221,7 +404,7 @@ private final class MenuLiveFixture {
             let menu = NSApp.windows.first { window in
                 window.contentView.map { find("menuHeaderProbe", in: $0) != nil } ?? false
             }
-            let expectedHeight: CGFloat = 376
+            let expectedHeight = CGFloat(208 + 24 * settings.visibleStations.count)
             if let menu, menu.isVisible, let host = menu.contentView,
                let header = find("menuHeaderProbe", in: host), let bottom = find("menuBottomProbe", in: host) {
                 let headerRect = header.convert(header.bounds, to: host)
@@ -229,9 +412,10 @@ private final class MenuLiveFixture {
                 let topInset = host.isFlipped ? headerRect.minY : host.bounds.height - headerRect.maxY
                 let bottomInset = host.isFlipped ? host.bounds.height - bottomRect.maxY : bottomRect.minY
                 let presentedHeight = host.layer?.presentation()?.bounds.height ?? host.bounds.height
-                let appearanceMatches = settings.appearance.nativeAppearance.map {
-                    menu.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == $0.name
-                } ?? true
+                let expectedAppearance = settings.appearance.nativeAppearance?.name
+                    ?? NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])
+                let appearanceMatches = menu.appearance?.name == settings.appearance.nativeAppearance?.name
+                    && menu.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == expectedAppearance
                 let backdrop = find("radioMenuBackground", in: host)
                 let backdropRect = backdrop.map { $0.convert($0.bounds, to: host) } ?? .zero
                 let backdropCoversContent = backdrop != nil
@@ -244,7 +428,7 @@ private final class MenuLiveFixture {
                     && abs(presentedHeight - expectedHeight) < 0.5
                     && abs(topInset - 9) < 0.5 && abs(bottomInset - 5) < 0.5 && appearanceMatches
                 layoutResults.append("\(valid ? "PASS" : "FAIL"): step=\(step) phase=\(radio.statusText.en) height=\(menu.frame.height) presented=\(presentedHeight) expected=\(expectedHeight) top=\(topInset) bottom=\(bottomInset) appearance=\(settings.appearance.rawValue) matches=\(appearanceMatches) backdropCoversContent=\(backdropCoversContent) backdropPassesInput=\(backdropPassesInput)")
-                if [13, 27, 31, 37, 39].contains(step), let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                if [13, 27, 31, 37, 39, 45, 49, 53, 57, 61, 65].contains(step), let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
                     menu.effectiveAppearance.performAsCurrentDrawingAppearance { host.cacheDisplay(in: host.bounds, to: bitmap) }
                     let output = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("menu-retry-step-\(step).png")
                     try? bitmap.representation(using: .png, properties: [:])?.write(to: output)
@@ -261,10 +445,10 @@ private final class MenuLiveFixture {
             let output = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("menu-live-diagnostics.txt")
             try? report.write(to: output, atomically: true, encoding: .utf8)
         }
-        if automatic && step == 42 {
+        if automatic && step == 66 {
             timer?.invalidate()
             timer = nil
-            guard layoutResults.count == 11 && layoutResults.allSatisfy({ $0.hasPrefix("PASS:") }) else {
+            guard layoutResults.count == 17 && layoutResults.allSatisfy({ $0.hasPrefix("PASS:") }) else {
                 let message = "FAIL: Native retry layout validation incomplete or failed; see menu-retry-result.txt\n"
                 FileHandle.standardError.write(Data(message.utf8))
                 radio.pause()
@@ -280,10 +464,17 @@ private final class MenuLiveFixture {
 }
 
 private struct MenuLivePreview: App {
-    @MenuState private var fixture = MenuLiveFixture()
+    @MenuState private var fixture: MenuLiveFixture
+    @ObservedObject private var settings: AppSettings
+    init() {
+        let fixture = MenuLiveFixture()
+        _fixture = MenuState(initialValue: fixture)
+        _settings = ObservedObject(wrappedValue: fixture.settings)
+    }
     var body: some Scene {
         MenuBarExtra {
-            CapturedMenuView(radio: fixture.radio, settings: fixture.settings)
+            CapturedMenuView(radio: fixture.radio, settings: settings)
+                .id(settings.visibleStations.map(\.id))
         } label: {
             CapturedMenuBarLabel(signal: fixture.signal, radio: fixture.radio, settings: fixture.settings)
         }.menuBarExtraStyle(.window)
@@ -344,6 +535,17 @@ struct MenuSnapshots {
             ("en-sorted", .english, false, "sorted"),
             ("zh-hidden-dark", .chinese, true, "hidden"),
             ("en-last-visible", .english, false, "lastVisible"),
+            ("en-last-visible-dark", .english, true, "lastVisible"),
+            ("zh-last-visible", .chinese, false, "lastVisible"),
+            ("zh-last-visible-dark", .chinese, true, "lastVisible"),
+            ("hant-last-visible", .traditionalChinese, false, "lastVisible"),
+            ("hant-last-visible-dark", .traditionalChinese, true, "lastVisible"),
+            ("en-five-stations", .english, false, "fiveStations"),
+            ("en-five-stations-dark", .english, true, "fiveStations"),
+            ("zh-five-stations", .chinese, false, "fiveStations"),
+            ("zh-five-stations-dark", .chinese, true, "fiveStations"),
+            ("hant-five-stations", .traditionalChinese, false, "fiveStations"),
+            ("hant-five-stations-dark", .traditionalChinese, true, "fiveStations"),
             ("en-light", .english, false, "paused"), ("zh-light", .chinese, false, "paused"),
             ("en-dark", .english, true, "paused"), ("zh-dark", .chinese, true, "paused"),
             ("zh-force-dark", .chinese, false, "forceDark"),
@@ -368,6 +570,9 @@ struct MenuSnapshots {
             if state == "hidden" {
                 settings.setStationVisible(.guangdong, false)
                 settings.setStationVisible(.classic947, false)
+            } else if state == "fiveStations" {
+                let visible: [Station] = [.kiss, .musicRadio, .bcc, .asiaFM, .guangdong]
+                for station in Station.allCases { settings.setStationVisible(station, visible.contains(station)) }
             } else if state == "lastVisible" {
                 for station in Station.allCases where station != .kiss { settings.setStationVisible(station, false) }
             }
@@ -492,7 +697,7 @@ struct MenuSnapshots {
         }
         for language in [AppLanguage.chinese, .traditionalChinese, .english] {
             settings.language = language
-            for count in [Station.allCases.count, 7, 1] {
+            for count in [Station.allCases.count, 7, 5, 1] {
                 for (index, station) in Station.allCases.enumerated() {
                     settings.setStationVisible(station, index < count)
                 }

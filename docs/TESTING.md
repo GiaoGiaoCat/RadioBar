@@ -2,7 +2,29 @@
 
 本文维护可执行入口、最新结果和验收缺口；旧逐次版本流水账已合并，完整记录保存在本地被 Git 忽略的重建前源码备份中。版本说明见 [CHANGELOG](../CHANGELOG.md)，当前状态见 [HANDOFF](HANDOFF.md)。
 
-## 2.0.2（109）本轮验证
+## 2.0.4（111）本轮验证
+
+补全共享外观桥接的生命周期核对：菜单重开／成为 key、App 激活及宿主窗口 appearance 变化后，按最新选择恢复原生窗口并同步 SwiftUI；系统模式清除显式覆盖。保持 `.menu / .behindWindow / .active`、配色、布局及 Dock 策略。
+
+- 原生菜单外观专项 15 项通过，报告 `build/menu-appearance-result.txt`，执行日志 `build/appearance-native.log`。覆盖菜单隐藏期间切浅深／系统、隔离 NSApp 外观变化、生产设置窗口切外观后关闭再展开、同色／异色宿主覆盖注入；同时核对窗口、材质、SwiftUI colorScheme、窗口复用、几何及输入穿透。异常注入仅是防回归测试，不代表重现用户肉眼偏暗。
+- 用 Git 中修复前的 SettingsView 源码与同一专项重新编译基线，15 项中 8 项通过、7 项失败，预期退出 1；包含同色系统覆盖未释放、之后无法跟随隔离 App 外观变化。基线报告 `build/appearance-baseline/menu-appearance-result.txt`，日志 `build/appearance-baseline.log`，编译日志 `build/appearance-baseline-compile.log`。生产源码未替换，未用旧二进制作当前验证。
+- 原菜单专项 17 项通过，系统模式已从跳过检查改为同时验证 nil 覆盖与继承 App 外观，日志 `build/appearance-menu-layout.log`。菜单预览 81 张及 108 组尺寸／边界检查通过，图片 `build/appearance-menu/`、日志 `build/appearance-menu.log`；12 张三语浅深色的完整／五台列表 PNG 与 2.0.3 对应图片字节完全相同，并实际查看英文深色、简体浅色及繁体深色。汇总 `build/appearance-verification.json`。
+- 设置预览 127 张通过，图片 `build/appearance-settings/`、日志 `build/appearance-settings.log`；沿用四组浅→系统→深→系统的原生／内容像素断言及隔离系统变化检查，实际查看中英文切换图及繁体深色。Dock 生命周期六组检查通过，日志 `build/appearance-dock.log`，保留原窗口复用与激活策略。
+- `./build.sh` 正式构建通过，日志 `build/appearance-build.log`；最终 ZIP 独立解压后严格 deep codesign、完整 Info.plist、2.0.4／111、arm64、macOS 14、默认电台资源及密文资源检查通过，除版本外的 Info.plist 与 Git 原值一致。记录 `build/appearance-zip-verification.json`、`build/appearance-codesign.log`，仍为 ad-hoc 签名、未公证。
+- 发布前将短列表与外观修复合并到 2.0.4 双语更新说明，并重新构建、从最终 ZIP 解压严格验签；日志 `build/v2.0.4-release-build.log`，记录 `build/v2.0.4-release-zip-verification.json`、`build/v2.0.4-release-codesign.log`。最终包版本 2.0.4／111，元数据及默认电台资源一致，包含合并说明。设置预览再次生成 127 张，图片 `build/v2.0.4-release-settings/`、日志 `build/v2.0.4-release-settings.log`；实际查看三语浅深色六张展开日志图，说明完整、当前版本标记正确。
+- 用户已授权提交、推送 `main` 与 `v2.0.4` 并由 Actions 发布，安装更新由用户自行完成；发布结果以 HANDOFF 与远端为准。未重复完整音频／联网回归；缓存图片不验证桌面玻璃合成，用户此前肉眼偏暗、截图正常的现象仍需实际复验。
+
+## 2.0.3（110）验证记录
+
+本轮仅修改菜单场景对设置变化的观察及可见电台集合对应的内容身份，使原生菜单重新测量自然高度；不设置窗口尺寸或位置，播放、配置、偏好存储和背景材质不变。
+
+- 在用户原安装版的诊断页读到：5 个可见电台时窗口仍为 256×424 pt，内容原点为 y=48 pt；与截图中 328 pt 内容上下各空 48 pt 一致。隔离自动预览未稳定重现该旧缓存状态，不能将其旧实现下的几何通过当作截图问题不存在。
+- 菜单预览重新编译通过：`build/menu-size-previews/` 共 81 张，日志 `build/menu-size-previews.log`；三语 × 12／7／5／1 个电台 × 9 种播放状态共 108 组尺寸和上下边界断言通过。实际查看 1 个及 5 个电台的三语浅深色共 12 张图片，无额外上下留白或截断。离屏实色背景仅验证布局。
+- 原生隔离菜单回归通过：17 项窗口／呈现图层尺寸、边界、外观、背景覆盖及输入穿透检查，包含隐藏期间在 12→5→1→12→5→7 个电台间变化后重新显示；5 个电台为 328 pt、1 个为 232 pt。日志 `build/menu-size-native.log`，报告 `build/menu-size-native-result.txt` 和 `build/menu-size-native-diagnostics.txt`，缓存图为 `build/menu-retry-step-{45,49,53,57,61,65}.png`。模拟播放、原生窗口方法及内容缓存图不等于鼠标端到端或桌面玻璃合成验收。
+- `./build.sh` 正式构建通过，日志 `build/menu-size-build.log`。从最终 ZIP 独立解压后，严格 deep codesign、完整 Info.plist、2.0.3／110、arm64、macOS 14、默认 JSON 一致及密文资源存在／明文资源缺失检查通过；记录 `build/menu-size-zip-verification.json`、`build/menu-size-codesign.log`。仍为 ad-hoc 签名、未公证。
+- 该本地版本未独立打标签或发布，修复随 2.0.4 一并交付，未运行直播／音频专项。用户后续自行安装，已确认短列表上下灰色空白修复生效；之后报告的肉眼偏暗、截图正常在退出重开 RadioBar 后恢复，具体根因尚未确定。
+
+## 2.0.2（109）验证记录
 
 内置地址资源改为 AES-256-GCM 密文，构建生成随机密钥及混淆 Swift 源码，App 在内存校验解密。输入来源、固定选址、完整查询参数、播放过渡、配置和诊断规则保持。以下为本地验证结果；用户随后授权提交、推送 `main` 与 `v2.0.2`，由 Actions 构建发布。按用户要求不跟踪最终远端结果或代为安装。
 
@@ -101,8 +123,9 @@ Mac 切台改为 0.8 秒淡出旧台、0.5 秒双路静音、1.2 秒淡入新台
 
 | 可执行入口 | 输入与默认输出 |
 |---|---|
-| `./Tools/Previews/render-menu.sh` | 从生产菜单提取测试副本，需 Python 3；含播放状态切换、显示电台数量变化时的自然尺寸及上下边界断言；图片输出 `build/menu-previews/`，生成 Swift 在 `build/` |
-| `./Tools/Previews/render-menu.sh --interactive` | 编译并组装 `build/RadioBarMenuPreview.app`；打开后显示生产菜单栏标签，复用生产菜单、7 个电台和隔离偏好；测试 App 的 Preview Appearance 菜单可切换 Light / Dark / System（⌘⌥1 / ⌘⌥2 / ⌘⌥0），仅改变隔离偏好。播放入口约 2 秒后模拟 Playing，无直播音频。将现有有界诊断报告写入 `build/menu-live-diagnostics.txt`。开发自动运行可从根目录执行 `RADIOBAR_MENU_AUTORUN=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots`，约 14 秒内由原生按钮方法初次展开，等待启动事件跟踪稳定后，通过原生窗口方法隐藏和显示，再模拟重试/取址/失败/播放、切台及深/浅/系统外观；11 项窗口/呈现图层高度、边界、外观、背景覆盖与事件穿透断言写入 `build/menu-retry-result.txt`，失败时保留报告并返回退出码 1（不触发崩溃），成功退出 0。可在同一自动运行命令前额外设置 `RADIOBAR_MENU_TEST_EARLY_DISMISS=1`，主动提前隐藏隔离菜单来验证失败退出路径；该模式预期为 INCOMPLETE / 退出 1，不计为布局通过。五张内容缓存图为 `build/menu-retry-step-{13,27,31,37,39}.png`；缓存图不验证系统玻璃合成，此方法不是鼠标端到端验收，需允许图形会话 |
+| `./Tools/Previews/render-menu.sh` | 从生产菜单提取测试副本，需 Python 3；含播放状态切换、12／7／5／1 个电台的自然尺寸及上下边界断言，并生成 1／5 个电台的三语浅深色图片；图片输出 `build/menu-previews/`，生成 Swift 在 `build/` |
+| `./Tools/Previews/render-menu.sh --interactive` | 编译并组装 `build/RadioBarMenuPreview.app`；打开后显示生产菜单栏标签，复用生产菜单、7 个电台和隔离偏好；测试 App 的 Preview Appearance 菜单可切换 Light / Dark / System（⌘⌥1 / ⌘⌥2 / ⌘⌥0），仅改变隔离偏好。播放入口约 2 秒后模拟 Playing，无直播音频。将现有有界诊断报告写入 `build/menu-live-diagnostics.txt`。开发自动运行可从根目录执行 `RADIOBAR_MENU_AUTORUN=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots`，约 19 秒内由原生按钮方法初次展开，等待启动事件跟踪稳定后，通过原生窗口方法隐藏和显示，再模拟重试/取址/失败/播放、切台及深/浅/系统外观，并在隐藏期间改变可见电台数量再重新显示；17 项窗口/呈现图层高度、边界、外观、背景覆盖与事件穿透断言写入 `build/menu-retry-result.txt`，失败时保留报告并返回退出码 1（不触发崩溃），成功退出 0。可在同一自动运行命令前额外设置 `RADIOBAR_MENU_TEST_EARLY_DISMISS=1`，主动提前隐藏隔离菜单来验证失败退出路径；该模式预期为 INCOMPLETE / 退出 1，不计为布局通过。十一张内容缓存图为 `build/menu-retry-step-{13,27,31,37,39,45,49,53,57,61,65}.png`；缓存图不验证系统玻璃合成，此方法不是鼠标端到端验收，需允许图形会话 |
+| 菜单外观原生专项 | 先运行 `./Tools/Previews/render-menu.sh --interactive`，再从根目录执行 `RADIOBAR_MENU_APPEARANCE_AUTORUN=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots`。约 16 秒内检查 15 项菜单隐藏／重开、浅深／系统切换、系统跟随、生产设置窗口切外观关闭后复用及宿主 override 异常注入恢复；同时核对窗口、材质、SwiftUI colorScheme、自然高度、边界及输入穿透。偏好及 NSApp 外观均在隔离进程内，系统模式要求 window.appearance 为 nil；报告 `build/menu-appearance-result.txt`、15 张缓存图 `build/menu-appearance-*.png`，失败退出 1。宿主覆盖注入为模拟防回归，不代表复现用户肉眼偏暗；缓存图也不证明桌面材质合成或鼠标交互 |
 | 菜单栏倒计时原生专项 | 先运行 `./Tools/Previews/render-menu.sh --interactive`，再从根目录执行 `RADIOBAR_MENU_LABEL_AUTORUN=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots`。用隔离偏好、生产标签与可控单调时钟，约 8 秒内比较两种名称模式的 18 组真实 NSStatusBarButton 状态，覆盖分钟、一位小时、两位小时格式；同一格式内宽度固定，画布超出实际内容不足 1 pt，并确认无比例文字标题、图片保持 template。报告 `build/menu-label-result.txt`，原生按钮缓存图 `build/menu-label-step-偶数.png`（2–36）；失败退出 1，不操作正式 App，不验证真实鼠标或直播声音 |
 | `./Tools/Previews/render-station-sync.sh [输出目录]` | 默认 `build/station-sync-previews/`；编译正式单向发布卡片及确认 sheet，生成 48 张简繁中文／英文、浅深色的未设置／首次确认／替换确认／已发布／待发布／云端变化／损坏／停止状态图，不启动正式 App、无 iCloud／音频操作 |
 | `./Tools/Previews/render-settings.sh` | 编译生产设置视图，复制 Info.plist/图标/许可证到测试资源 bundle；覆盖关于页、许可 sheet 的简繁中文/英文浅深色、正文末尾与资源缺失，及添加/编辑窗口及冲突提示、默认/自定义/仅内置台的列表与默认下拉、简繁中文/英文、浅深色和外观切换，图片输出 `build/settings-previews/` |

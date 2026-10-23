@@ -66,11 +66,7 @@
 
 ### 配置同步（可选）
 
-在“设置 → 配置同步”中设置 iCloud 文件夹，Mac 将本机电台资料、排序、显示选择和默认模式单向发布，iPhone 只读并保留最后有效缓存。默认位置为 `RadioBar/RadioBarSync`，也可选择原有目录；首次发布和接替现有配置需要确认。只有一台 Mac 管理，不提供多 Mac 编辑。
-
-启动、回到前台及配置修改时自动发布，也可“立即同步”。停止同步保留本机及云端文件。原 Application Support 目录、音量、上次收听等设备偏好保持；外部编辑 JSON 后仍须先“重新加载”。由系统传递配置，不承诺实时到达。
-
-新版电台 JSON 备份固定保留最近 5 次成功操作，旧备份及失败恢复材料保留，可从“电台配置 → 打开文件夹”手动检查。同步页在关联后可直接“打开 iCloud 同步文件夹”。界面不再提供历史恢复、手动清理、存储统计或独立同步排查。格式和迁移见 [配置说明](docs/STATIONS.md)，两端约定见 [iPhone 整改需求](docs/IPHONE_SYNC_SIMPLIFICATION.md)。iPhone 开发及真实双端 iCloud 验收分别进行。
+在“设置 → 配置同步”中设置 iCloud 文件夹，即可将电台资料、排序、显示选择和默认模式从 Mac 单向同步至 iPhone。修改后自动同步，也可点击“立即同步”。仅支持一台 Mac 管理，iPhone 只读，同步可能有延迟。详见 [配置说明](docs/STATIONS.md)。
 
 <p align="center">
   <img src="docs/images/stations-dark.png" width="760" height="620" alt="RadioBar 深色电台配置页下半部分：电台行、添加电台、打开配置文件、重新加载与恢复内置电台">

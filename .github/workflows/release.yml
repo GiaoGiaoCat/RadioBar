@@ -1,0 +1,95 @@
+name: Release macOS app
+
+'on':
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-publish
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo '::error::Release tag must use vMAJOR.MINOR.PATCH (for example v1.0.47).'
+            exit 1
+          fi
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
+          if [[ "$RELEASE_TAG" != "v$version" ]]; then
+            echo '::error::Tag version does not match Resources/Info.plist.'
+            exit 1
+          fi
+          test "$(uname -m)" = arm64
+          xcrun swiftc --version
+
+      - name: Validate signing configuration
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          test -n "$SPARKLE_PRIVATE_KEY" || { echo '::error::Configure the SPARKLE_PRIVATE_KEY Actions secret before releasing.'; exit 1; }
+
+      - name: Build delivery archive
+        env:
+          KISS_STREAM_URL: ${{ secrets.KISS_STREAM_URL }}
+          CNR_STREAM_URL: ${{ secrets.CNR_STREAM_URL }}
+        run: ./build.sh
+
+      - name: Verify delivery archive and generate checksum
+        run: |
+          set -euo pipefail
+          verify_dir=$(mktemp -d /private/tmp/RadioBar-release-verify.XXXXXX)
+          trap 'rm -rf "$verify_dir"' EXIT
+          /usr/bin/ditto -x -k build/RadioBar-macOS-arm64.zip "$verify_dir"
+          app="$verify_dir/RadioBar.app"
+          codesign --verify --deep --strict "$app"
+          test "$(lipo -archs "$app/Contents/MacOS/RadioBar")" = arm64
+          for key in CFBundleShortVersionString CFBundleVersion CFBundleIdentifier LSMinimumSystemVersion; do
+            expected=$(/usr/libexec/PlistBuddy -c "Print :$key" Resources/Info.plist)
+            actual=$(/usr/libexec/PlistBuddy -c "Print :$key" "$app/Contents/Info.plist")
+            test "$actual" = "$expected"
+          done
+          cd build
+          shasum -a 256 RadioBar-macOS-arm64.zip > SHA256SUMS.txt
+          shasum -a 256 -c SHA256SUMS.txt
+
+      - name: Sign update archive and appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: ./Tools/sign-release.sh
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Refuse to move the latest feed backwards when an older tag is pushed.
+          gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" > build/releases.json
+          python3 Tools/check-release-order.py build/releases.json "$RELEASE_TAG"
+          gh release create "$RELEASE_TAG" \
+            build/RadioBar-macOS-arm64.zip build/SHA256SUMS.txt build/updates/appcast*.xml \
+            --draft --verify-tag --title "RadioBar $RELEASE_TAG" --generate-notes \
+            --notes 'Apple Silicon (arm64), macOS 14+. Sparkle signed updates. Ad-hoc app signing; not notarized.'
+          # The latest/download feed switches only after all assets have been uploaded.
+          gh release edit "$RELEASE_TAG" --draft=false --latest

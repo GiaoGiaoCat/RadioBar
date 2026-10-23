@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "stations": [
+    {
+      "id": "bcc",
+      "name": {
+        "zh": "台湾中广音乐网",
+        "en": "BCC i Radio"
+      },
+      "frequencyMHz": "96.3",
+      "category": {
+        "zh": "音乐 · 华语流行",
+        "en": "Music · Mandarin pop"
+      },
+      "urls": [
+        "https://stream.rcs.revma.com/ks4vsmg3qtzuv",
+        "https://stream.rcs.revma.com/ndk05tyy2tzuv"
+      ],
+      "defaultVisible": true
+    },
+    {
+      "id": "ufo",
+      "name": {
+        "zh": "飞碟联播网",
+        "en": "UFO Radio"
+      },
+      "frequencyMHz": "92.1",
+      "fullName": {
+        "zh": "飞碟联播网 UFO Radio",
+        "en": "UFO Radio"
+      },
+      "category": {
+        "zh": "综合 · 音乐 / 访谈",
+        "en": "Mixed · Music / Talk"
+      },
+      "urls": [
+        "https://stream.rcs.revma.com/em90w4aeewzuv",
+        "https://ls.qingting.fm/live/4847.m3u8"
+      ],
+      "defaultVisible": true
+    },
+    {
+      "id": "asiaFM",
+      "name": {
+        "zh": "AsiaFM 亚洲粤语台",
+        "en": "AsiaFM Cantonese"
+      },
+      "category": {
+        "zh": "音乐 · 粤语流行",
+        "en": "Music · Cantonese pop"
+      },
+      "urls": [
+        "http://yyt.asiafm.net:8000/asiafm",
+        "https://lhttp.qtfm.cn/live/15318569/64k.mp3"
+      ],
+      "defaultVisible": true
+    },
+    {
+      "id": "guangdong",
+      "name": {
+        "zh": "广东音乐之声",
+        "en": "Guangdong Music"
+      },
+      "frequencyMHz": "99.3",
+      "fullName": {
+        "zh": "广东电台音乐之声",
+        "en": "Guangdong Music"
+      },
+      "category": {
+        "zh": "音乐 · 华语 / 粤语流行",
+        "en": "Music · Chinese pop"
+      },
+      "urls": [
+        "https://ls.qingting.fm/live/1260.m3u8",
+        "https://satellitepull.cnr.cn/live/wxgdyyzs/playlist.m3u8"
+      ],
+      "defaultVisible": true
+    },
+    {
+      "id": "shanghai",
+      "name": {
+        "zh": "上海动感101",
+        "en": "Shanghai 101"
+      },
+      "frequencyMHz": "101.7",
+      "category": {
+        "zh": "音乐 · 流行热歌",
+        "en": "Music · Pop hits"
+      },
+      "urls": [
+        "https://lhttp-hw.qtfm.cn/live/274/64k.mp3",
+        "http://live.xmcdn.com/live/53/64.m3u8"
+      ],
+      "defaultVisible": true
+    },
+    {
+      "id": "loveRadio",
+      "name": {
+        "zh": "上海 Love Radio",
+        "en": "Shanghai Love Radio"
+      },
+      "frequencyMHz": "103.7",
+      "category": {
+        "zh": "音乐 · 流行 / 经典金曲",
+        "en": "Music · Pop / Classics"
+      },
+      "urls": [
+        "https://lhttp.qingting.fm/live/273/64k.mp3",
+        "http://live.xmcdn.com/live/55/64.m3u8"
+      ],
+      "defaultVisible": true
+    },
+    {
+      "id": "classic947",
+      "name": {
+        "zh": "上海经典947",
+        "en": "Shanghai Classic 947"
+      },
+      "frequencyMHz": "94.7",
+      "category": {
+        "zh": "音乐 · 古典",
+        "en": "Music · Classical"
+      },
+      "urls": [
+        "https://lhttp.qingting.fm/live/267/64k.mp3",
+        "http://live.xmcdn.com/live/54/64.m3u8"
+      ],
+      "defaultVisible": true
+    },
+    {
+      "id": "radioParadise",
+      "name": {
+        "zh": "Radio Paradise",
+        "en": "Radio Paradise"
+      },
+      "category": {
+        "zh": "音乐 · 摇滚 / 独立 / 多元",
+        "en": "Music · Rock / Eclectic"
+      },
+      "urls": [
+        "http://stream-tx3.radioparadise.com/mp3-192",
+        "http://stream-tx1.radioparadise.com/mp3-128"
+      ],
+      "defaultVisible": true
+    },
+    {
+      "id": "grooveSalad",
+      "name": {
+        "zh": "SomaFM Groove Salad",
+        "en": "SomaFM Groove Salad"
+      },
+      "category": {
+        "zh": "音乐 · 氛围 / 电子 / 舒缓",
+        "en": "Music · Ambient / Chill"
+      },
+      "urls": [
+        "https://ice5.somafm.com/groovesalad-256-mp3",
+        "https://ice5.somafm.com/groovesalad-128-mp3"
+      ],
+      "defaultVisible": true
+    },
+    {
+      "id": "swissJazz",
+      "name": {
+        "zh": "Radio Swiss Jazz",
+        "en": "Radio Swiss Jazz"
+      },
+      "category": {
+        "zh": "音乐 · 爵士 / 灵魂 / 蓝调",
+        "en": "Music · Jazz / Blues"
+      },
+      "urls": [
+        "https://stream.srg-ssr.ch/srgssr/rsj/mp3/128",
+        "https://stream.srg-ssr.ch/srgssr/rsj/aac/96"
+      ],
+      "defaultVisible": true
+    }
+  ]
+}

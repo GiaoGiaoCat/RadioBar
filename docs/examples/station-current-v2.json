@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "libraryID": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "sequence": 1,
+  "publishedAt": 1792627200,
+  "configuration": {
+    "document": "eyJzY2hlbWFWZXJzaW9uIjoxLCJzdGF0aW9ucyI6W119",
+    "preferences": {
+      "orderIDs": ["builtin.kiss", "builtin.music-radio"],
+      "visibilityOverrides": {}
+    }
+  }
+}

@@ -1,0 +1,4 @@
+2026-10-19 23:43:26.261 NativeVolumeAudit[41941:15431423] IOPMScheduleUserActivityLevelNotification returned 0
+AUDIT: endpoint elapsed=8.003650999977253s; slider=0.65; nativeNewVolume=0.65; nativeOldVolume=0.0
+AUDIT: one second after transition nativeNewVolume=0.65; slider=0.65; no residual attenuation
+PASS: real native AVPlayer decoded local silent WAV on two decks, completed 8s smooth equal-power crossfade and 3s sleep fade, restored no persistent volume changes

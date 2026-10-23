@@ -1,0 +1,58 @@
+Use case: infographic-diagram.
+Create ONE finished high-resolution portrait Simplified Chinese installation instruction image for the macOS app RadioBar, to be sent as an image in WeChat to friends with no technical experience. Approx 1440x2880 or similar tall 1:2 portrait, ample margins, ultra legible crisp Chinese typography. It must work when opened full screen on a phone. The supplied image is ONLY the actual RadioBar app icon: reproduce it faithfully as a small rounded-square icon in the header and install illustration. It is not an edit target.
+Design: clean warm-white background, dark navy text, restrained blue accent matching RadioBar, white rounded cards, generous breathing room, numbered blue circles. Minimal restrained graphics. No QR code, no decorative filler, no phone device frame, no English duplicates. Use six vertically stacked numbered steps. Steps 3–5 occupy the largest area and include simplified accurate macOS UI illustrations with orange rings/arrows around the precise buttons. These illustrations must be marked as illustrative, not real screenshots. UI fragments should have only essential labels and large readable text. No fake security claims, no terminal commands, no disabling protection, no automatic bypass. Do not claim the app is notarized.
+
+Exact Chinese text and hierarchy:
+HEADER:
+"RadioBar 安装指南"
+"微信收到文件后，照着做就能听电台"
+Small compatibility badge:
+"仅限 M 系列 Mac · macOS 14 或以上"
+
+SECTION LABEL: "先安装"
+STEP 1 TITLE: "保存并解压"
+STEP 1 BODY: "在电脑版微信中保存 ZIP 文件，再双击解压。"
+Illustrate a ZIP file named "RadioBar-macOS-arm64.zip" becoming RadioBar.app. Filename should fit, can put it on separate line.
+
+STEP 2 TITLE: "拖入「应用程序」并打开"
+STEP 2 BODY: "把 RadioBar.app 拖进「应用程序」文件夹，再双击打开。"
+Illustrate RadioBar app icon arrow to blue Applications folder labelled "应用程序". Small opening Finder via Dock is not needed.
+
+SECTION LABEL: "首次被拦截？接着做"
+STEP 3 TITLE: "在提示中点「完成」"
+STEP 3 BODY: "如果提示「Apple 无法验证」，先点「完成」。"
+Illustrate a macOS warning dialog, prominently showing "Apple 无法验证 RadioBar.app" and the two choices "移到废纸篓" and "完成". Highlight ONLY "完成" with ring and arrow and label "点这里". Do not highlight the trash option. Keep dialog big and easy to understand.
+
+STEP 4 TITLE: "找到「仍要打开」"
+STEP 4 BODY: "打开「系统设置」→「隐私与安全性」，向下滚动。"
+Illustrate simplified settings window sidebar with selected "隐私与安全性", right pane lower "安全性" section, text "RadioBar 已被阻止打开" and prominent actual button "仍要打开". Circle button and arrow "点这里". This step must show both the selected sidebar and the action in the same illustration.
+
+STEP 5 TITLE: "按提示确认打开"
+STEP 5 BODY: "按提示输入 Mac 登录密码或使用触控 ID，再确认「打开」。"
+Illustrate a small simplified confirmation dialog with a highlighted blue button labelled "打开". Do not invent an extra button before settings step.
+HELP SMALL LINE under step5: "没看到「仍要打开」？先再打开一次 RadioBar，再回到这里。"
+
+STEP 6 TITLE: "去右上角选电台"
+STEP 6 BODY: "点击屏幕右上方菜单栏的天线图标，选择电台开始收听。"
+Illustrate a cropped horizontal Mac menu bar showing a simple monochrome antenna icon near right corner, with blue arrow pointing exactly to antenna, NOT to blue FM app icon, clock or settings symbol. Small generic RadioBar menu with two rows "选择电台" "播放" is okay but not necessary. Use small success check and "安装完成" if space.
+
+BOTTOM small but readable:
+"以上放行步骤仅适用于「无法验证」提示。"
+"遇到「已损坏」等其他报错，请截图联系发送者。"
+"界面为操作示意，实际样式可能略有不同。"
+"操作参考：Apple 支持 · support.apple.com/zh-cn/102445"
+
+Ensure every text is rendered correctly, no missing steps, no repeated numbers. Do not add translations, ad copy or technical explanations. Make this a polished finished practical guide, with clear visual focus on 完成 → 隐私与安全性 → 仍要打开 → 打开.
+
+
+--- First correction pass ---
+Edit this existing RadioBar installation guide with ONLY two small precise corrections. Preserve its overall layout, all six steps, header, icons, typography sizes, colors, illustrations, full Chinese instructional copy and footer exactly.
+1. In step 4 settings window illustration, the selected blue sidebar row currently has malformed Chinese. It MUST read exactly "隐私与安全性", matching the step body. Simplify that sidebar by REMOVE all other menu rows and their icons if needed, leaving only a clear blue selected row reading "隐私与安全性". Keep the right pane heading "隐私与安全性", section "安全性", message "RadioBar 已被阻止打开。" and the circled button "仍要打开" exactly. Avoid any garbled Chinese anywhere.
+2. In step 5 right-hand illustration, replace the password authentication mock dialog with a simplified final open-confirmation dialog. This final dialog must read "要打开 RadioBar.app 吗？", show the small RadioBar app icon, and two choices: "取消" and prominent blue "打开". Orange ring and arrow point exactly to "打开". No password field, no fingerprint lock, no claim that the system settings is trying to open the app. The existing left-hand body text already explains password / Touch ID when requested and must stay unchanged. Bottom disclaimer states UI is illustrative.
+Do not change anything else, preserve exact overall tall portrait dimensions and legibility.
+
+--- Final correction pass ---
+Make ONLY one correction to the supplied finished RadioBar installation guide. Step 4 settings mockup contains garbled Chinese in a blue sidebar menu label. REMOVE THE ENTIRE LEFT SIDEBAR of that one step-4 mockup, including blue row, lock icon, and malformed label. Expand the right pane to fill that small illustration. The resulting step-4 mockup should contain ONLY the top title "隐私与安全性", then section "安全性", text "RadioBar 已被阻止打开。", and orange circled "仍要打开" button with the existing orange arrow "点这里". There must be NO sidebar and NO blue navigation row remaining. No need to replace the malformed label. Preserve every other pixel and Chinese text in all other parts and all six numbered steps. Keep dimensions, layout, colors and legibility unchanged.
+
+Generation mode: built-in imagegen.
+Final image: docs/images/radiobar-wechat-install-guide.png

@@ -196,6 +196,14 @@ private struct RadioMenuView: View {
                 .accessibilityHidden(true)
                 .allowsHitTesting(false)
         }
+        .background {
+            GeometryReader { geometry in
+                MenuContentSizeBridge(size: geometry.size)
+                    .frame(width: 0, height: 0)
+            }
+            .accessibilityHidden(true)
+            .allowsHitTesting(false)
+        }
         .radioAppearance(settings.appearance)
         .background(alignment: .topLeading) {
             MenuWindowDiagnostics(phase: radio.statusText.en, diagnostics: radio.diagnostics)
@@ -204,6 +212,81 @@ private struct RadioMenuView: View {
                 .allowsHitTesting(false)
         }
     }
+}
+
+/// Keep the reused native menu sized to its fixed-size SwiftUI content.
+/// Measurement includes every row and padding; native presentation owns position.
+private struct MenuContentSizeBridge: NSViewRepresentable {
+    let size: CGSize
+    final class SizingView: NSView {
+        var naturalSize: CGSize = .zero
+        private var observers: [NSObjectProtocol] = []
+        private var generation = 0
+        private var pending = false
+        private var disposed = false
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            cancelPendingWork()
+            guard !disposed, let window else { return }
+            for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResizeNotification,
+                         NSWindow.didChangeOcclusionStateNotification] {
+                observers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.scheduleResize() }
+                })
+            }
+            scheduleResize()
+        }
+        deinit { observers.forEach(NotificationCenter.default.removeObserver) }
+        private func cancelPendingWork() {
+            generation &+= 1
+            pending = false
+            observers.forEach(NotificationCenter.default.removeObserver)
+            observers.removeAll()
+        }
+        func dispose() {
+            disposed = true
+            cancelPendingWork()
+        }
+        func scheduleResize() {
+            guard !disposed, !pending, let window else { return }
+            pending = true
+            let scheduledGeneration = generation
+            DispatchQueue.main.async { [weak self, weak window] in
+                guard let self, !self.disposed, self.generation == scheduledGeneration else { return }
+                self.pending = false
+                guard let window, self.window === window else { return }
+                let measured = self.naturalSize
+                guard measured.width.isFinite, measured.height.isFinite,
+                      measured.width > 0, measured.height > 0 else { return }
+                let scale = max(window.backingScaleFactor, 1)
+                let size = CGSize(width: ceil(measured.width * scale) / scale,
+                                  height: ceil(measured.height * scale) / scale)
+                // Leave oversized menus to native presentation rather than
+                // repeatedly fighting its screen-size constraints.
+                guard let screen = window.screen else { return }
+                let frameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: size)).size
+                guard frameSize.width <= screen.visibleFrame.width,
+                      frameSize.height <= screen.visibleFrame.height else { return }
+                let current = window.contentRect(forFrameRect: window.frame).size
+                let tolerance = 0.5 / scale
+                guard abs(current.width - size.width) > tolerance
+                    || abs(current.height - size.height) > tolerance else { return }
+                window.setContentSize(size)
+            }
+        }
+    }
+    func makeNSView(context: Context) -> SizingView {
+        let view = SizingView()
+        view.naturalSize = size
+        return view
+    }
+    func updateNSView(_ view: SizingView, context: Context) {
+        guard view.naturalSize != size else { return }
+        view.naturalSize = size
+        view.scheduleResize()
+    }
+    static func dismantleNSView(_ view: SizingView, coordinator: ()) { view.dispose() }
 }
 
 /// Use the semantic menu material instead of the window-style extra's default

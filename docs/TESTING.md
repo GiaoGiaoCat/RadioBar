@@ -2,6 +2,17 @@
 
 本文维护可执行入口、最新结果和验收缺口；旧逐次版本流水账已合并，完整记录保存在本地被 Git 忽略的重建前源码备份中。版本说明见 [CHANGELOG](../CHANGELOG.md)，当前状态见 [HANDOFF](HANDOFF.md)。
 
+## 2.0.5（112）本地验证
+
+用户在 2.0.4 再次报告多台隐藏至一台后窗口错位、退出重开恢复。本轮用菜单自然测量结果同步原生窗口尺寸，保留配色、材质与布局。未在隔离原生菜单中自然复现用户现象，以下区分受控模型和原生呈现流程。
+
+- 受控宿主模型 19 项通过：普通 NSWindow 的 NSHostingView 关闭自动尺寸传播，只在初始七台时设置一次窗口尺寸，随后逐台执行 7→1→7→1；窗口、内容与上下边界均随自然高度更新。报告 `build/short-list-menu/cached-host-size-result.txt`。以同一最终测试重新编译 Git `458e4be` 的菜单源码，2 项通过、17 项失败，预期退出 1；一台内容仍居中在 376 pt 旧窗口中。基线报告 `build/short-list-controlled-baseline/previews/cached-host-size-result.txt`。该模型验证恢复能力，不是原生 MenuBarExtra 自然重现；普通 NSWindow 的位置不作为菜单定位断言。
+- 新原生短列表专项 7 项通过，日志 `build/short-list-native.log`，报告及完整几何在 `build/short-list-native/`。呈现与关闭均经真实 NSStatusBarButton 方法，生产设置窗口开关、逐台隐藏和恢复后再次展开；四次菜单检查包含高度、上下边界和相对菜单栏按钮的顶部间距，均保持初始 2 pt。没有用 orderOut / makeKeyAndOrderFront 绕过该流程；仍是自动原生动作，不是物理鼠标点击。菜单外观专项 15 项通过，日志 `build/short-list-appearance.log`，报告 `build/menu-appearance-result.txt`。
+- 菜单预览 81 张、原有 108 组自然高度及边界检查通过，图片 `build/short-list-menu/`、日志 `build/short-list-menu.log`；全部 81 张与旧菜单源码对应图片字节相同，记录 `build/short-list-pixel-comparison.json`。实际查看英文深色／简体浅色的一台菜单和繁体深色五台菜单，离屏背景仅验证内容布局。
+- 设置预览 127 张通过，日志 `build/short-list-settings.log`、图片 `build/short-list-settings/`；实际查看三语浅深色六张展开日志图，2.0.5（112）及当前版本标记完整。正式构建通过，日志 `build/short-list-build.log`；从最终 ZIP 用 ditto 独立解压，严格 deep codesign、arm64、完整 Info.plist、默认电台与密文资源检查通过，记录 `build/short-list-zip-verification.json`、`build/short-list-codesign.log`。仍为 ad-hoc 签名，未公证。
+- 用户解锁后补充 CUA 界面交互：同一隔离进程内实际操作生产设置开关，逐台执行 7→1→7→1、关闭设置并重开菜单；另确认七台原生菜单隐藏后，坐标点击六个开关缩至一台、坐标关闭设置并重新展开。九份同期几何及汇总在 `build/short-list-mouse/`：七台 256×376、一台 256×232，内容／背景／呈现层匹配，上下边界 9／5 pt，菜单顶部相对按钮始终 2 pt。实际查看系统深色及生产设置切浅色后的一台／七台菜单，无灰条、错位或裁切；全程未重启，结束后从菜单退出测试 App。
+- 菜单呈现由测试控制窗口调用真实 NSStatusBarButton，未将其称为直接鼠标点击系统状态栏图标。用户旧版异常未在隔离原生菜单中自然重现，实际安装版及肉眼偏暗仍由用户复验。未修改播放／配置／偏好或设置窗口的生产生命周期，未重复完整音频、联网与 Dock 回归；现已获得提交、推送 `main` 与 `v2.0.5` 并发布的授权，安装更新由用户自行完成，远端结果见 HANDOFF。
+
 ## 2.0.4（111）本轮验证
 
 补全共享外观桥接的生命周期核对：菜单重开／成为 key、App 激活及宿主窗口 appearance 变化后，按最新选择恢复原生窗口并同步 SwiftUI；系统模式清除显式覆盖。保持 `.menu / .behindWindow / .active`、配色、布局及 Dock 策略。
@@ -12,7 +23,7 @@
 - 设置预览 127 张通过，图片 `build/appearance-settings/`、日志 `build/appearance-settings.log`；沿用四组浅→系统→深→系统的原生／内容像素断言及隔离系统变化检查，实际查看中英文切换图及繁体深色。Dock 生命周期六组检查通过，日志 `build/appearance-dock.log`，保留原窗口复用与激活策略。
 - `./build.sh` 正式构建通过，日志 `build/appearance-build.log`；最终 ZIP 独立解压后严格 deep codesign、完整 Info.plist、2.0.4／111、arm64、macOS 14、默认电台资源及密文资源检查通过，除版本外的 Info.plist 与 Git 原值一致。记录 `build/appearance-zip-verification.json`、`build/appearance-codesign.log`，仍为 ad-hoc 签名、未公证。
 - 发布前将短列表与外观修复合并到 2.0.4 双语更新说明，并重新构建、从最终 ZIP 解压严格验签；日志 `build/v2.0.4-release-build.log`，记录 `build/v2.0.4-release-zip-verification.json`、`build/v2.0.4-release-codesign.log`。最终包版本 2.0.4／111，元数据及默认电台资源一致，包含合并说明。设置预览再次生成 127 张，图片 `build/v2.0.4-release-settings/`、日志 `build/v2.0.4-release-settings.log`；实际查看三语浅深色六张展开日志图，说明完整、当前版本标记正确。
-- 用户已授权提交、推送 `main` 与 `v2.0.4` 并由 Actions 发布，安装更新由用户自行完成；发布结果以 HANDOFF 与远端为准。未重复完整音频／联网回归；缓存图片不验证桌面玻璃合成，用户此前肉眼偏暗、截图正常的现象仍需实际复验。
+- 已按授权提交、推送 `main` 与 `v2.0.4`，Actions 与正式发布确认成功，实际附件、更新签名及最终 ZIP 已核对，见 HANDOFF；安装更新由用户自行完成。未重复完整音频／联网回归；缓存图片不验证桌面玻璃合成，用户此前肉眼偏暗、截图正常的现象仍需实际复验。用户后续再次报告短列表错位，不能以本节检查视为完整验收，后续处理见 2.0.5。
 
 ## 2.0.3（110）验证记录
 
@@ -123,9 +134,11 @@ Mac 切台改为 0.8 秒淡出旧台、0.5 秒双路静音、1.2 秒淡入新台
 
 | 可执行入口 | 输入与默认输出 |
 |---|---|
-| `./Tools/Previews/render-menu.sh` | 从生产菜单提取测试副本，需 Python 3；含播放状态切换、12／7／5／1 个电台的自然尺寸及上下边界断言，并生成 1／5 个电台的三语浅深色图片；图片输出 `build/menu-previews/`，生成 Swift 在 `build/` |
+| `./Tools/Previews/render-menu.sh` | 从生产菜单提取测试副本，需 Python 3；含播放状态切换、12／7／5／1 个电台的自然尺寸及上下边界断言，生成 81 张图片；另用关闭宿主自动尺寸传播的普通 NSWindow 逐台验证 7→1→7→1 的 19 项尺寸恢复，报告 `cached-host-size-result.txt`，失败退出 1。图片及报告默认在 `build/menu-previews/`，生成 Swift 在 `build/`。编译后可用 `RADIOBAR_MENU_CACHED_HOST_ONLY=1 ./build/MenuSnapshots 输出目录` 单跑受控模型；该模型不验证原生菜单定位或自然复现 |
 | `./Tools/Previews/render-menu.sh --interactive` | 编译并组装 `build/RadioBarMenuPreview.app`；打开后显示生产菜单栏标签，复用生产菜单、7 个电台和隔离偏好；测试 App 的 Preview Appearance 菜单可切换 Light / Dark / System（⌘⌥1 / ⌘⌥2 / ⌘⌥0），仅改变隔离偏好。播放入口约 2 秒后模拟 Playing，无直播音频。将现有有界诊断报告写入 `build/menu-live-diagnostics.txt`。开发自动运行可从根目录执行 `RADIOBAR_MENU_AUTORUN=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots`，约 19 秒内由原生按钮方法初次展开，等待启动事件跟踪稳定后，通过原生窗口方法隐藏和显示，再模拟重试/取址/失败/播放、切台及深/浅/系统外观，并在隐藏期间改变可见电台数量再重新显示；17 项窗口/呈现图层高度、边界、外观、背景覆盖与事件穿透断言写入 `build/menu-retry-result.txt`，失败时保留报告并返回退出码 1（不触发崩溃），成功退出 0。可在同一自动运行命令前额外设置 `RADIOBAR_MENU_TEST_EARLY_DISMISS=1`，主动提前隐藏隔离菜单来验证失败退出路径；该模式预期为 INCOMPLETE / 退出 1，不计为布局通过。十一张内容缓存图为 `build/menu-retry-step-{13,27,31,37,39,45,49,53,57,61,65}.png`；缓存图不验证系统玻璃合成，此方法不是鼠标端到端验收，需允许图形会话 |
 | 菜单外观原生专项 | 先运行 `./Tools/Previews/render-menu.sh --interactive`，再从根目录执行 `RADIOBAR_MENU_APPEARANCE_AUTORUN=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots`。约 16 秒内检查 15 项菜单隐藏／重开、浅深／系统切换、系统跟随、生产设置窗口切外观关闭后复用及宿主 override 异常注入恢复；同时核对窗口、材质、SwiftUI colorScheme、自然高度、边界及输入穿透。偏好及 NSApp 外观均在隔离进程内，系统模式要求 window.appearance 为 nil；报告 `build/menu-appearance-result.txt`、15 张缓存图 `build/menu-appearance-*.png`，失败退出 1。宿主覆盖注入为模拟防回归，不代表复现用户肉眼偏暗；缓存图也不证明桌面材质合成或鼠标交互 |
+| 菜单短列表原生专项 | 先组装上述 interactive App，再执行 `RADIOBAR_MENU_SHORT_LIST_AUTORUN=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots`。约 24 秒经真实菜单栏按钮呈现／关闭 extra，生产设置窗口开关和逐台显示 setter 驱动 7→1→7→1；7 项检查包括原生窗口高度、上下边界及菜单顶部相对按钮的间距，报告 `build/menu-short-list-result.txt`，完整几何在同一报告及 `build/menu-live-diagnostics.txt`。失败／缺少按钮或探针均退出 1；不直接隐藏／显示原生窗口，不代表物理鼠标点击或桌面合成验收 |
+| 菜单短列表交互预览 | 同一测试 App 可用 `RADIOBAR_MENU_SHORT_LIST_INTERACTIVE=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots` 打开隔离的生产电台设置与测试控制窗口。`Toggle menu` 调用真实状态栏按钮，`Open settings` 打开生产设置；可手动逐台隐藏至一台、关闭设置并重开菜单。几何变化写入 `build/menu-live-diagnostics.txt`，不自动退出、不操作正式 App 配置；需要解锁的图形会话 |
 | 菜单栏倒计时原生专项 | 先运行 `./Tools/Previews/render-menu.sh --interactive`，再从根目录执行 `RADIOBAR_MENU_LABEL_AUTORUN=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots`。用隔离偏好、生产标签与可控单调时钟，约 8 秒内比较两种名称模式的 18 组真实 NSStatusBarButton 状态，覆盖分钟、一位小时、两位小时格式；同一格式内宽度固定，画布超出实际内容不足 1 pt，并确认无比例文字标题、图片保持 template。报告 `build/menu-label-result.txt`，原生按钮缓存图 `build/menu-label-step-偶数.png`（2–36）；失败退出 1，不操作正式 App，不验证真实鼠标或直播声音 |
 | `./Tools/Previews/render-station-sync.sh [输出目录]` | 默认 `build/station-sync-previews/`；编译正式单向发布卡片及确认 sheet，生成 48 张简繁中文／英文、浅深色的未设置／首次确认／替换确认／已发布／待发布／云端变化／损坏／停止状态图，不启动正式 App、无 iCloud／音频操作 |
 | `./Tools/Previews/render-settings.sh` | 编译生产设置视图，复制 Info.plist/图标/许可证到测试资源 bundle；覆盖关于页、许可 sheet 的简繁中文/英文浅深色、正文末尾与资源缺失，及添加/编辑窗口及冲突提示、默认/自定义/仅内置台的列表与默认下拉、简繁中文/英文、浅深色和外观切换，图片输出 `build/settings-previews/` |

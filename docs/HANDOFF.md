@@ -8,7 +8,7 @@
 
 重建前源码和完整旧 Git 仅备份一份，位于被忽略的 `private/repository-rebuild-20261023-154311/RadioBar-before-reinit/`。其他五个旧工作目录（含有未提交工作的 iOS 工程）仍关联此备份；已修复指针并核对内容。不要删除／移动备份或从旧目录向同名新仓库推送旧历史。`private/` 不进入首次提交；完整 1.x 文档也在该备份中，新仓库不再保留开发流水账。
 
-文档分工：README 是用户入口；AGENTS 是工作规则；本文件维护当前状态、代码地图和未选需求；UI_GUIDELINES / STATIONS 是业务规范；TESTING 是验证入口、最近结果及缺口；CHANGELOG 和 App 内双语日志维护 2.0 起的发布说明与简要阶段汇总。
+文档分工：README 是用户入口；BUILD 维护源码编译方法；AGENTS 是工作规则；本文件维护当前状态、代码地图和未选需求；UI_GUIDELINES / STATIONS 是业务规范；TESTING 是验证入口、最近结果及缺口；CHANGELOG 和 App 内双语日志维护 2.0 起的发布说明与简要阶段汇总。
 
 ## 2. 当前产品
 
@@ -24,7 +24,7 @@
 
 `./build.sh` 从成对环境变量 `KISS_STREAM_URL` / `CNR_STREAM_URL`（优先）或被忽略的 `private/builtin-streams.json`（0600）读取完整输入。Actions 继续只需要原有两个地址 Secrets，禁止本地回退。
 
-生成器每次使用独立随机 AES-256 密钥和 GCM nonce，加密原始 JSON；密钥随机置换并用随机掩码拆分，生成 `BuiltinStreamKey.swift`。密文 `builtin-streams.bin` 与源码在独占生成目录中成对原子更新，失败保留前一组；生成目录含其他文件则拒绝覆盖。CLT 构建在临时目录生成并清理，Xcode 在编译前写入 DerivedSources，SwiftPM 按 README 预生成被忽略的 `Sources/RadioBar/Generated/`。只有密文进入资源，密钥材料编入程序，生成源码不打包、不提交。
+生成器每次使用独立随机 AES-256 密钥和 GCM nonce，加密原始 JSON；密钥随机置换并用随机掩码拆分，生成 `BuiltinStreamKey.swift`。密文 `builtin-streams.bin` 与源码在独占生成目录中成对原子更新，失败保留前一组；生成目录含其他文件则拒绝覆盖。CLT 构建在临时目录生成并清理，Xcode 在编译前写入 DerivedSources，SwiftPM 按 [源码编译指南](BUILD.md) 预生成被忽略的 `Sources/RadioBar/Generated/`。只有密文进入资源，密钥材料编入程序，生成源码不打包、不提交。
 
 App 使用 CryptoKit 校验版本头和 GCM 认证后在内存解密，保持完整查询参数与线路顺序；缺失、损坏、篡改、错配均返回空地址，不回退明文或开发者文件。离线测试／预览不需要私有输入或生成密钥，联网专项另行打包真实配对产物。诊断继续脱敏；旧交接输入仅供本地追溯。
 
@@ -103,7 +103,7 @@ loveRadio, classic947, radioParadise, grooveSalad, swissJazz
 
 ## 8. 构建、验证与交付
 
-从仓库根目录按 README 准备私有输入后运行 `./build.sh`，产物为 `build/RadioBar-macOS-arm64.zip`。App 在普通临时目录装配并 ad-hoc 签名；交付前必须从最终 ZIP 解压并执行 `codesign --verify --deep --strict`。这不是 Developer ID 公证发布。
+从仓库根目录按 [源码编译指南](BUILD.md) 准备私有输入后运行 `./build.sh`，产物为 `build/RadioBar-macOS-arm64.zip`。App 在普通临时目录装配并 ad-hoc 签名；交付前必须从最终 ZIP 解压并执行 `codesign --verify --deep --strict`。这不是 Developer ID 公证发布。
 
 按 [TESTING](TESTING.md#按改动选择验证) 选择专项；完整离线入口是 `./test.sh`，不是 `swift test`。新增／移动生产源码同步 Xcode Sources 和显式测试清单。图形会话、宏插件、文件协调或回环服务受限时，报告实际通过的范围与环境边界。
 

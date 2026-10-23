@@ -67,7 +67,7 @@ Mac 切台改为 0.8 秒淡出旧台、0.5 秒双路静音、1.2 秒淡入新台
 
 ### 构建、测试和联网探测
 
-内置地址注入使用 `Tools/prepare-builtin-streams.sh OUTPUT_DIRECTORY`，由 `build.sh`、Xcode、联网和更新专项复用；用 Swift / CryptoKit 编译生成器及生产 `BuiltinStreams.swift`，不需要额外 Python 依赖。成对环境变量优先，否则读取 `private/builtin-streams.json`；Actions 禁止本地回退。输出目录专用于随机 AES-256-GCM 密文 `builtin-streams.bin` 与混淆密钥 `BuiltinStreamKey.swift`，目录原子替换保证配对，含无关文件时拒绝覆盖。密文 0644、源码 0600，不生成磁盘明文副本；CLT 临时产物退出清理。Xcode 编译前生成并在原生 Sources 阶段编译密钥，SwiftPM 预生成到忽略的 Generated 目录；密钥源码不打包。参数仅为输出目录，禁止输出地址、密钥或解析错误正文。SwiftPM 步骤见 README。
+内置地址注入使用 `Tools/prepare-builtin-streams.sh OUTPUT_DIRECTORY`，由 `build.sh`、Xcode、联网和更新专项复用；用 Swift / CryptoKit 编译生成器及生产 `BuiltinStreams.swift`，不需要额外 Python 依赖。成对环境变量优先，否则读取 `private/builtin-streams.json`；Actions 禁止本地回退。输出目录专用于随机 AES-256-GCM 密文 `builtin-streams.bin` 与混淆密钥 `BuiltinStreamKey.swift`，目录原子替换保证配对，含无关文件时拒绝覆盖。密文 0644、源码 0600，不生成磁盘明文副本；CLT 临时产物退出清理。Xcode 编译前生成并在原生 Sources 阶段编译密钥，SwiftPM 预生成到忽略的 Generated 目录；密钥源码不打包。参数仅为输出目录，禁止输出地址、密钥或解析错误正文。SwiftPM 步骤见 [源码编译指南](BUILD.md#xcode-与-swiftpm)。
 
 离线测试／预览的 `RADIOBAR_TESTING` 使用 `.invalid` 假地址，无需生成密钥；生成器／解码测试用 `RADIOBAR_STREAM_TOOL` 排除包内静态加载。联网专项另加 `RADIOBAR_LIVE_STREAMS` 并在隔离 App 中注入配对密文／编译密钥，不得用普通离线假地址声称真实播放通过。正式 App 缺失／损坏／篡改／错配资源时安全返回空地址，禁止明文回退并由既有连接失败路径处理，不从开发者目录读取私有数据。
 

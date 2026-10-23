@@ -16,7 +16,7 @@ RadioBar 是 macOS 原生菜单栏电台 App。以当前仓库源码、`Resource
 - UI 改动：阅读 [UI_GUIDELINES](docs/UI_GUIDELINES.md) 的相关章节，复用现有组件、布局及反馈规范；未涉及的尺寸、字重和快捷键保持现状。
 - 电台配置、编辑或迁移：阅读 [STATIONS](docs/STATIONS.md)，核对稳定 ID、备份、冲突检测和偏好语义。
 - 验证前：查 [TESTING](docs/TESTING.md#按改动选择验证)，复用现有脚本并检查相关覆盖。
-- 编译方法见 [README](README.md)。播放、外观、取址等实现细节按任务读取相关源码；发现文档与源码不一致时明确指出，不扩展任务顺手修正。
+- 编译方法见 [源码编译指南](docs/BUILD.md)。播放、外观、取址等实现细节按任务读取相关源码；发现文档与源码不一致时明确指出，不扩展任务顺手修正。
 
 ## 必须保留的约束
 
@@ -67,7 +67,7 @@ RadioBar 是 macOS 原生菜单栏电台 App。以当前仓库源码、`Resource
 
 ## 构建与交付
 
-- 从仓库根目录按 README 运行 `./build.sh`；交付目标为 Apple Silicon、macOS 14+，产物为 `build/RadioBar-macOS-arm64.zip`。
+- 从仓库根目录按 [源码编译指南](docs/BUILD.md) 运行 `./build.sh`；交付目标为 Apple Silicon、macOS 14+，产物为 `build/RadioBar-macOS-arm64.zip`。
 - 正式 App 在普通临时目录组装签名；交付前从最终 ZIP 解压并执行 `codesign --verify --deep --strict`。当前为 ad-hoc 签名，不能称为 Developer ID 公证发布。
 - 功能版本交付时同步 Info.plist 版本/递增构建号、内置双语日志和 CHANGELOG；纯文档不增加 App 版本。
 - 用户已将新仓库初始化版本指定为 `2.0.0`；后续默认递增 `2.0.X` 末位及构建号，对应 tag 使用 `v2.0.X`。构建号继续单调递增，不随主版本重置；调整次版本或主版本仍需用户明确允许。

@@ -1,4 +1,4 @@
-<h1 align="center">RadioBar</h1>
+<h1 align="center"><img src="Artwork/AppIcon.png" width="32" height="32" align="absmiddle" alt=""> RadioBar</h1>
 
 <p align="center">把电台放进 Mac 菜单栏，随手打开，安心听歌。</p>
 
@@ -14,8 +14,6 @@
   <img src="docs/images/menu-dark.png" width="256" height="496" alt="RadioBar 中文深色主菜单：12 个默认电台、播放控制、音量与睡眠定时入口">
 </p>
 <p align="center"><sub>浅色 / 深色 · 基于当前源码生成的界面预览</sub></p>
-
-当前源码从 **2.0.0** 开始维护，合并此前版本的功能与更新记录；现有用户配置和偏好继续保留。
 
 ## 想做什么
 

@@ -11,6 +11,9 @@ struct RadioReleaseNote: Identifiable {
 /// Detailed 1.x records remain only in the local pre-reinitialization backup.
 enum RadioReleaseNotes {
     static let entries: [RadioReleaseNote] = [
+        RadioReleaseNote(version: "2.0.1", title: RadioText("2.0.1", "2.0.1"), changes: [
+            RadioText("切台缩短为 2.5 秒：先用 0.8 秒淡出原电台，静音间隔 0.5 秒，再用 1.2 秒淡入新电台，避免两个电台声音重叠。", "Shorten station transitions to 2.5 seconds: fade out the previous station over 0.8 seconds, leave 0.5 seconds of silence, then fade in the new station over 1.2 seconds, without overlapping audio."),
+        ]),
         RadioReleaseNote(version: "2.0.0", title: RadioText("2.0.0", "2.0.0"), changes: [
             RadioText("以现有功能为基础开启 2.0 版本，合并历史更新说明，保留用户电台、排序、音量、语言及其他偏好。", "Start the 2.0 release series with consolidated updates, preserving stations, ordering, volume, language and other preferences."),
             RadioText("所有电台统一使用固定播放线路，失败后按已配置顺序重试；KISS 与央广地址随 App 构建打包，公开源码不包含完整地址。", "Use fixed streams for all stations and retry configured streams in order. Bundle KISS and CNR addresses during builds, keeping full addresses out of public source."),

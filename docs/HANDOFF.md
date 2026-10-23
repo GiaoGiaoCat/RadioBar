@@ -1,10 +1,10 @@
 # RadioBar 开发交接
 
-更新日期：2026-10-23（Asia/Shanghai）。当前本地版本 **2.0.0（107）**，作为新仓库首次提交；未打 tag、推送、发布或安装。继续开发前核对 `Resources/Info.plist`、Git 状态与实际 diff。
+更新日期：2026-10-23（Asia/Shanghai）。当前源码版本 **2.0.1（108）**，包含 2.5 秒无叠音切台改动，交付标签为 `v2.0.1`；新仓库以 2.0.0（107）为初始化基线。提交与发布状态以 Git 和对应 Actions 为准，本机未安装新版。继续开发前核对 `Resources/Info.plist`、Git 状态与实际 diff。
 
 ## 1. 工作入口与新仓库状态
 
-用户指定同名重建并从 2.0.0 开始维护。当前 `/Users/victor/Github/RadioBar` 使用全新 Git，`main` 仅保留本次无父提交的初始化版本，`origin` 仍为 `git@github.com:GiaoGiaoCat/RadioBar.git`；远端删除／创建、推送与发布需分别按用户授权执行，本轮均不执行。网页操作见 [REPOSITORY_REBUILD](REPOSITORY_REBUILD.md)。
+用户指定同名重建并从 2.0.0 开始维护。当前 `/Users/victor/Github/RadioBar` 使用全新 Git，`main` 以无父提交的 2.0.0 初始化版本为基线，`origin` 为 `git@github.com:GiaoGiaoCat/RadioBar.git`。已核对远端 `v2.0.0` 发布成功；本次用户授权提交切台改动、推送主分支及 `v2.0.1` 标签，后者触发现有发布工作流。不再执行远端删除或重建。重建过程见 [REPOSITORY_REBUILD](REPOSITORY_REBUILD.md)。
 
 重建前源码和完整旧 Git 仅备份一份，位于被忽略的 `private/repository-rebuild-20261023-154311/RadioBar-before-reinit/`。其他五个旧工作目录（含有未提交工作的 iOS 工程）仍关联此备份；已修复指针并核对内容。不要删除／移动备份或从旧目录向同名新仓库推送旧历史。`private/` 不进入首次提交；完整 1.x 文档也在该备份中，新仓库不再保留开发流水账。
 
@@ -15,7 +15,7 @@
 - 原生 SwiftUI / AppKit / AVPlayer 菜单栏电台 App，Apple Silicon、macOS 14+；bundle ID `local.victor.RadioBar`。提供 Xcode 工程和 Package.swift，正式 ZIP 由 `./build.sh` 装配。
 - 默认 12 个电台，KISS / 央广为内置台，只能隐藏和排序；10 个普通台由默认／用户 JSON 管理，可添加、编辑、删除、显示或隐藏。至少保留一个显示台，变更配置或显示不擅自中断当前播放。
 - 全台统一使用有序固定线路，不进行 TingFM / KISS 客户端动态取址、到期推导或计划刷新。失败沿用四次重试、2/4/8/16 秒退避；单线路重试原地址，多线路依次轮换。
-- 支持独立静音、音量、8 秒柔和切台、1–720 分钟睡眠倒计时和 6 秒睡眠渐弱；菜单栏计时按当前格式绘制，不预留小时位。默认静态天线，可选慢动画。
+- 支持独立静音、音量、2.5 秒柔和切台（先 0.8 秒淡出、静音间隔 0.5 秒、再 1.2 秒淡入，不叠音）、1–720 分钟睡眠倒计时和 6 秒睡眠渐弱；菜单栏计时按当前格式绘制，不预留小时位。默认静态天线，可选慢动画。
 - 支持上次／固定／随机启动、独立启动自动播放及登录启动设置；简体／通用繁体／英文和系统语言，浅／深／系统外观。设置窗口期间显示 Dock，可选常驻，重开复用页面。
 - 单台 Mac 管理并发布 v2 `RadioBarSync/current.json`，iPhone 只读；旧关联需重新确认，旧已确认事务先恢复。新版 JSON 备份保留最近五次，旧备份和恢复材料保留。两端协议见 [IPHONE_SYNC_SIMPLIFICATION](IPHONE_SYNC_SIMPLIFICATION.md)。
 - 关于页提供原生签名更新、版本复制和离线许可证；诊断仅保留有界脱敏内存记录。2.0 将旧更新记录按能力合并，保留现有界面和用户偏好。
@@ -53,9 +53,9 @@
 ## 5. 播放及网络关键约束
 
 - 新台 URL 解析、readyToPlay 或 HTTP 200 都不等于真正播放。只有 ready + playing + 时间推进才触发双路过渡。
-- 过渡进度 p∈[0,1]，s=p²(3−2p)，新台 gain=sin(πs/2)，旧台 gain=原增益×cos(πs/2)。起止斜率为零，正常起始旧增益为 1 时平方和为 1；不是响度归一化。
+- 切台依次执行淡出、静音、淡入：旧台在 0.8 秒内以原增益×cos(πs/2) 淡出，新台保持 gain=0；随后两路保持 gain=0 静音 0.5 秒；最后旧台保持 gain=0，新台在 1.2 秒内以 sin(πs/2) 淡入。淡入、淡出各段独立使用 p∈[0,1]、s=p²(3−2p)，起止斜率为零，不补偿交接处的静音。静音从旧台实际归零时计满 0.5 秒，回调延迟时总时长相应顺延，不跳过间隔。音量写入先归零另一台，不叠音；过渡完成释放旧实例。正常交接 2.5 秒，不含网络连接与缓冲。
 - 新台失败时旧台保持；缓冲中断过渡时恢复旧台。重试 4 次，延迟 2/4/8/16 秒。所有电台随 sourceAttempt 顺序轮换固定主备，健康重置 retryCount 不应错误重置线路位置。
-- 快速切台最多两路，保留较响且真正播放的实例；暂停、重连、睡眠和新选择必须取消过期任务/计时器，旧回调不能复活音频。
+- 快速切台最多两路，保留较响且真正播放的实例；处于两路 gain=0 的静音间隔时，保留已经确认时间推进的新台。暂停、重连、睡眠和新选择必须取消过期任务/计时器，旧回调不能复活音频。
 - 全台固定地址选址不访问取址网页、API 或 token 服务；不解析 URL 的 expires/time 等参数，不设置到期或 30 分钟刷新任务。正常 HLS 列表/分片刷新由 AVPlayer 管理。
 - KISS 和央广地址按用户确认的数据内置，当前均为单线路，失败重试原地址；普通台继续使用默认/用户 JSON 的完整地址及顺序。多线路健康后失败继续下一条，不自动切回主线。
 - 25 秒无进展处理和原有有界恢复由当前实现决定，不为“更快”随意缩短。ATS 仅必要主机例外。
@@ -105,18 +105,18 @@ loveRadio, classic947, radioParadise, grooveSalad, swissJazz
 
 按 [TESTING](TESTING.md#按改动选择验证) 选择专项；完整离线入口是 `./test.sh`，不是 `swift test`。新增／移动生产源码同步 Xcode Sources 和显式测试清单。图形会话、宏插件、文件协调或回环服务受限时，报告实际通过的范围与环境边界。
 
-用户指定初始化版本为 2.0.0，构建号延续为 107，不重置；后续默认递增 2.0.X 和构建号。发布前同步 Info.plist、双语日志与 CHANGELOG；提交核对后，获得授权才先推主分支，再创建／推送对应 tag（本次目标 `v2.0.0`）。不要恢复旧标签或镜像推送旧 Git。
+用户指定初始化版本为 2.0.0，构建号延续为 107，不重置；后续默认递增 2.0.X 和构建号。2.0.1（108）已同步 Info.plist、双语日志与 CHANGELOG；本次已获用户授权提交、打 tag 并推送 GitHub。检查提交后先推 `main`，再创建／推送 `v2.0.1`，跟踪其 Actions 和发布结果，不在本机安装。不要恢复旧标签或镜像推送旧 Git。
 
 Actions 的 tag 工作流校验版本、构建、解压验签、生成校验文件与四份签名 appcast，上传草稿后再正式发布。使用自动 `GITHUB_TOKEN` 和以下三个 Repository Secrets，无需额外 PAT：
 
 - `KISS_STREAM_URL`、`CNR_STREAM_URL`：完整固定地址。
 - `SPARKLE_PRIVATE_KEY`：原更新私钥，本机登录钥匙串 account 为 `local.victor.RadioBar`；对应公钥保留在 Info.plist。旧仓库 Secret 不可读回，同名新仓库需重新配置。不要输出、提交、重新生成或擅自更换密钥。
 
-更新组件仍为 Sparkle 2.10.0；生产源为 `https://github.com/GiaoGiaoCat/RadioBar/releases/latest/download/appcast.xml` 及语言变体。签名验证涵盖 feed、说明及 ZIP。按需运行本地签名／更新专项，配置远端 Secret 不是日常测试步骤。推送成功不代表 Actions 或发布成功；后续交付还需核对远端附件和更新源。当前没有 2.0 的远端发布结果。
+更新组件仍为 Sparkle 2.10.0；生产源为 `https://github.com/GiaoGiaoCat/RadioBar/releases/latest/download/appcast.xml` 及语言变体。签名验证涵盖 feed、说明及 ZIP。按需运行本地签名／更新专项，配置远端 Secret 不是日常测试步骤。推送成功不代表 Actions 或发布成功；后续交付还需核对远端附件和更新源。已核对 [v2.0.0 Actions](https://github.com/GiaoGiaoCat/RadioBar/actions/runs/39924375663) 成功及正式 Release 的六份附件；本次 `v2.0.1` 结果须按其对应工作流和附件另行核对。
 
 ## 9. 当前验证与限制
 
-测试、构建、资源注入和真实播放范围见 [TESTING](TESTING.md)。历史实现已通过离线逻辑、原生静音过渡、原生拖放回调和 Dock 专项；KISS / 央广曾经用户实际播放确认，但不能据此认定全部电台、长时间稳定性、真实鼠标或双端同步已验收。2.0 本轮仅改版本、合并日志与文档，最新验证结果以 TESTING 的当前记录为准。
+测试、构建、资源注入和真实播放范围见 [TESTING](TESTING.md)。2.0.1 本轮将 Mac 切台改为 2.5 秒先淡出、静音间隔后淡入，实际验证结果以 TESTING 的当前记录为准。KISS / 央广曾经用户实际播放确认，但不能据此认定本轮切台听感、全部电台、长时间稳定性、真实鼠标或双端同步已验收；iPhone 需求文档中的 8 秒行为仍描述其原有基线，本轮未修改 iPhone 工作目录。
 
 ## 10. 未选定需求
 

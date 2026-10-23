@@ -2,9 +2,20 @@
 
 本文维护可执行入口、最新结果和验收缺口；旧逐次版本流水账已合并，完整记录保存在本地被 Git 忽略的重建前源码备份中。版本说明见 [CHANGELOG](../CHANGELOG.md)，当前状态见 [HANDOFF](HANDOFF.md)。
 
+## 2.0.1（108）本轮验证
+
+Mac 切台改为 0.8 秒淡出旧台、0.5 秒双路静音、1.2 秒淡入新台，正常交接共 2.5 秒；静音从旧台实际归零时开始计时，回调延迟不跳过间隔，总时长相应顺延。本轮完成 2.0.1（108），同步双语日志和行为文档；用户随后授权提交并推送 `main` 与 `v2.0.1` 标签。GitHub 发布由标签工作流执行，结果另行核对，本机不安装。
+
+- 最终源码的音频逻辑专项通过，日志 `build/gapped-audio-tests.log`。2501 个毫秒采样点验证两段曲线、中间完整静音及正常 2.5 秒释放旧实例；每次独立音量写入检查至多一路非零、最多两路加载。覆盖延迟回调后仍计满 0.5 秒静音、间隔起止／中段的缓冲与失败恢复、快速切台、暂停取消、静音解除／音量调整及睡眠到期，均不意外启动待执行的淡入。
+- 最终源码重新编译的真实 AVPlayer 本地静音专项通过，日志 `build/native-audio-transitions.log`（执行日志 `build/gapped-native-test-run.log`）。总过渡实测约 2.531 秒、连续双路零音量约 0.533 秒；每次音量写入均无两路非零，6 秒睡眠渐弱及保存音量保持通过。按 30 Hz 计时允许回调帧间隔误差，在允许 SwiftUI 宏和图形服务的本机环境运行。
+- 最终源码的完整 `./test.sh` 在允许的本机环境通过，日志 `build/gapped-full-tests.log`；包含音频覆盖、固定线路／重试、配置／偏好、38 项 v2 协议／旧事务、69 项 Mac 发布／备份、原生拖放和 Dock 回归。
+- 最终源码的 `./build.sh` 通过，日志 `build/gapped-build.log`。重建的最终 ZIP 独立解压后严格 deep codesign、2.0.1 / 108、arm64、macOS 14、完整 Info.plist 和默认电台资源比对通过；结果 `build/gapped-zip-verification.json`、`build/gapped-codesign.log`。仍为 ad-hoc 签名，未公证。
+- 当前更新说明的设置预览 127 张生成通过，日志 `build/gapped-settings.log`，图片 `build/gapped-settings/`。实际检查简繁中文／英文、浅深色共六张展开日志图，2.5 秒及 0.5 秒静音说明完整显示、无截断，2.0.1（108）和当前版本标记正确。本地文档链接、版本／构建号、bundle ID／更新公钥／ATS 保持及 `git diff --check` 通过。
+- 尚未实际直播试听；静音解码和音量写入检查不能替代真实出声的主观听感验收。没有运行联网、安装或更新专项。
+
 ## 2.0.0（107）本轮验证
 
-本轮修改版本元数据、合并双语更新说明及历史文档，更新设置预览的日志定位；不改变播放、配置、偏好、拖放或 Dock 的生产逻辑。当前首次提交将保留为无父提交的 2.0.0 基线，不打 tag、推送、发布或安装。
+本轮修改版本元数据、合并双语更新说明及历史文档，更新设置预览的日志定位；不改变播放、配置、偏好、拖放或 Dock 的生产逻辑。首次提交保留为无父提交的 2.0.0 基线；以下为当时的本地验证记录，其后的远端发布状态见 HANDOFF。
 
 - `./build.sh` 通过，日志 `build/v2-build.log`。最终 ZIP 独立解压严格 codesign、arm64、最低 macOS 14、2.0.0 / 107、完整 Info.plist 和包内资源比对通过；私有地址与输入一致且不在主 Mach-O 中。ZIP 为 3,070,995 字节，SHA-256 为 `1a34ce98c9a5f7180493c8bcd601b69f3141aaff7461c71d6718288cba81dd2e`，记录 `build/v2-verification.json` 与 `build/v2-codesign.log`；仍为 ad-hoc 签名，未公证。
 - 设置预览 127 张通过，日志 `build/v2-settings.log`；实际检查三语浅深色关于页的 2.0.0（107）和完整四项合并日志，无截断，滚动定位复用版本列表首尾而不再写死 1.0.0。图片在 `build/v2-settings/`。
@@ -13,12 +24,12 @@
 
 ## 沿用的功能覆盖与证据
 
-以下是 2026-10-23 当前播放／配置实现已经取得的结果，不等于本轮重新运行全部专项：
+以下是 2026-10-23 的 2.0.0 基线已经取得的结果；本轮变更后的验证以上方 2.0.1 记录为准：
 
 - 完整 `./test.sh` 通过，覆盖固定线路选址、重试预算、配置与偏好、38 项 v2 协议／旧事务和 69 项 Mac 发布／备份检查，以及音频逻辑、原生拖放、Dock；日志 `build/private-stream-tests.log`。首次文件协调／图形沙箱失败已在允许环境复验。
 - 私有地址注入专项覆盖完整查询与顺序、14 类无效载荷、10 项 Secrets／本地优先级、Actions 不回退、脱敏错误、失败保留输出和包内资源权限；日志 `build/private-stream-input-tests.log`。缺少输入的真实构建保留旧 ZIP，记录 `build/private-stream-missing-input.log`。
 - 生产 `BuiltinStreams.swift` 的隔离探针验证最终 ZIP 的 Bundle.main 加载和资源缺失安全路径；旧 1.x 基线的 CLT／Xcode／SwiftPM 三种构建及资源一致性通过。旧产物摘要仅供追溯，不作为 2.0 当前产物的证明。
-- 当前音频实现的真实 AVPlayer 本地静音专项通过 8 秒切台和 6 秒睡眠渐弱；日志 `build/fixed-native-audio.log`。联网专项中 KISS／央广均 ready、playing 且连续五秒时间推进，日志 `build/fixed-network.log`；用户也确认实际可听，但持续时长未提供。
+- 2.0.0 音频基线的真实 AVPlayer 本地静音专项通过 8 秒切台和 6 秒睡眠渐弱；日志 `build/fixed-native-audio.log`。联网专项中 KISS／央广均 ready、playing 且连续五秒时间推进，日志 `build/fixed-network.log`；用户也确认实际可听，但持续时长未提供。
 - 用户曾确认旧版 Sparkle 跨版本下载、替换和重启成功且偏好保持；旧签名专项验证 feed／说明／ZIP 篡改拒绝和语言选择。不能由此认定 2.0 已发布、安装或完成新仓库端到端更新。
 - 本地新 Git 排除了旧提交、标签、私有地址文件和旧备份；五个旧工作目录的 HEAD、已暂存／未暂存差异及未跟踪内容保持。备份仍含旧历史，`private/` 必须持续忽略。
 
@@ -59,13 +70,13 @@
 | `./Tools/Tests/test-station-sync.sh` | 编译当前 v2 文件格式、共享配置、文件安全及旧事务恢复源码，输出 `build/StationSyncTests` 后运行；使用隔离临时目录和偏好，无云端、网络、正式配置及音频操作，已接入 `./test.sh` |
 | `./Tools/Tests/test-station-sync.sh --typecheck-ios` | 需完整 Xcode 与 iOS SDK；对共享基础及其既有 Foundation 依赖分别检查真机／模拟器类型兼容，只使用模块缓存，不安装或进行 iCloud 验收 |
 | `./Tools/Tests/build-directory-probe.sh [macos\|ios-simulator\|ios-device]` | 默认 macos；在 `build/` 生成对应隔离 App，Mac／模拟器 ad-hoc 签名，真机未签名；不启动或安装。UI 交互须人工完成，不纳入无人值守 `./test.sh`，签名／目录授权步骤见工具说明 |
-| `./Tools/Tests/test-audio-transitions.sh` | 假播放器/可控时钟及真实 run loop，验证过渡、竞态与取消；不访问直播源 |
+| `./Tools/Tests/test-audio-transitions.sh` | 假播放器/可控时钟及真实 run loop，验证 0.8 秒淡出＋0.5 秒静音＋1.2 秒淡入、逐次音量写入无叠音、竞态与取消；不访问直播源 |
 | `./Tools/Tests/test-native-channel-drops.sh` | 生产标题栏/背景拖动配置，验证手柄禁止窗口移动、真实视图事件命中及原生接收/提交/取消；OS 事件封装和载荷读取有适配，不等于实际鼠标拖放 |
 | `./Tools/Tests/test-native-channel-drops.sh --interactive` | 编译并组装 `build/RadioBarDragTests.app`；打开后以隔离偏好和临时配置目录显示真实设置页，无网络/音频。用鼠标向上/向下拖动普通台和内置台，验证取消不改序；滚动到底部先点击“重新加载”，确认中广显示为 Reloaded BCC，再点击“恢复内置电台列表”，确认名称立即恢复、成功提示约 5 秒后消失，再关闭窗口。程序检查窗口原点未变、排序已改变且新 AppSettings 读取一致，以及加载已发生、原配置备份内容、恢复后的 JSON 和内存列表；成功写入 `build/native-channel-drag-result.txt`。不修改正式 App、用户配置或偏好；隔离 App 同步打包许可证，可切换关于页检查许可入口 |
 | `./Tools/Tests/test-native-channel-drops.sh --interactive-visibility` | 复用同一隔离测试 App，准备仅 KISS 显示且作为固定默认的场景。打开 App 后点击隐藏 KISS，关闭“至少一个”提示并确认开关仍开启；开启 CNR Music Radio，再隐藏 KISS，确认默认台提示；关闭窗口。程序检查两种反馈事件、提示清除、默认回退和可见台跨 AppSettings 实例持久化，写入 `build/native-station-visibility-result.txt`。不要求此模式执行拖放或重新加载，临时配置与偏好独立于正式 App |
 | `./Tools/Tests/test-native-channel-drops.sh --interactive-editor` | 复用隔离测试 App 与临时 JSON；添加中英文名称且英文为 Editor Test 的台、编辑中广英文名为 Edited BCC、确认删除 UFO，关闭设置窗口。程序验证 JSON 与列表立即更新、ID 保留、偏好读取一致、至少三份原字节备份及窗口未移动，成功写入 `build/native-station-editor-result.txt`。可先练习取消、无效地址、外部冲突，错误不会写入；该模式无需重新加载、恢复或执行拖放，完整鼠标排序另用 `--interactive` |
 | `./Tools/Tests/test-dock-visibility.sh` | 原生窗口生命周期、激活策略、Dock reopen 与启动偏好；需 macOS 图形会话，会短暂显示测试窗口，不等同真实鼠标/Dock 像素验收 |
-| `./Tools/Tests/test-native-audio-transitions.sh` | 两个真 AVPlayer + 本地静音 PCM，验证过渡与睡眠渐弱；无需直播网络。结果在终端及 `build/native-audio-transitions.log` |
+| `./Tools/Tests/test-native-audio-transitions.sh` | 两个真 AVPlayer + 本地静音 PCM，验证 2.5 秒分段时序与 0.5 秒静音间隔、逐次音量写入无叠音、完成后释放旧实例及 6 秒睡眠渐弱；无需直播网络。结果在终端及 `build/native-audio-transitions.log`，不代表真实出声验收 |
 | `./Tools/Tests/test-updates.sh` | 先完成构建和签名，需 `build/updates/appcast*.xml` 四份签名源、Python 3、SDK、本地回环监听和图形服务；临时 App 验证无更新/发现更新、语言选择、feed/说明/ZIP 篡改拒绝和发布顺序，原生弹窗视图预览在 `build/update-previews/`，不下载或替换正式 App |
 | `./test.sh --network` | 先完整离线回归，再静音探测 KISS、央广、中广、飞碟和广东已配置线路；不是全部 12 个电台验收 |
 | `./test.sh --network-fixed` | 先完整离线回归，再静音探测 KISS 与央广固定源 |

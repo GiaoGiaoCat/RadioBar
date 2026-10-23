@@ -73,12 +73,16 @@ final class RadioPlayer: ObservableObject {
         let duration: TimeInterval
         let incomingGain: Float
         let outgoingGain: Float
+        var silenceStartedAt: TimeInterval?
     }
     private var currentDeck: Deck
     private var outgoingDeck: Deck?
     private var player: any AudioPlayback { currentDeck.audio }
     private var fade: Fade?
     private var fadeTicker: Timer?
+    private static let stationFadeOutDuration: TimeInterval = 0.8
+    private static let stationSilenceDuration: TimeInterval = 0.5
+    private static let stationFadeInDuration: TimeInterval = 1.2
     private let makeAudio: @MainActor () -> any AudioPlayback
     private let fadeNow: () -> TimeInterval
     private let automaticFadeTicks: Bool
@@ -138,6 +142,12 @@ final class RadioPlayer: ObservableObject {
                 $0.audio.state.isPlaying && $0.gain > 0 && $0.address != nil
             }
             retained = playingDecks.max(by: { $0.gain < $1.gain })
+            // Both gains are zero throughout the silent interval. The incoming
+            // deck has already proved timeline progress before this fade began.
+            if retained == nil, fade?.kind == .crossfade,
+               currentDeck.audio.state.isPlaying, currentDeck.address != nil {
+                retained = currentDeck
+            }
         }
         diagnostics.record("station.select", newStation.rawValue)
         station = newStation
@@ -164,8 +174,15 @@ final class RadioPlayer: ObservableObject {
 
     private func applyVolumes() {
         let base: Float = isMuted ? 0 : Float(min(1, max(0, volume)))
-        currentDeck.audio.volume = base * currentDeck.gain
-        if let outgoingDeck { outgoingDeck.audio.volume = base * outgoingDeck.gain }
+        // Silence the other deck before raising a gain, including after a late
+        // timer tick jumps across the handoff or buffering restores the old deck.
+        if currentDeck.gain > 0 {
+            if let outgoingDeck { outgoingDeck.audio.volume = base * outgoingDeck.gain }
+            currentDeck.audio.volume = base * currentDeck.gain
+        } else {
+            currentDeck.audio.volume = 0
+            if let outgoingDeck { outgoingDeck.audio.volume = base * outgoingDeck.gain }
+        }
     }
 
     private func cancelRequests() {
@@ -196,7 +213,7 @@ final class RadioPlayer: ObservableObject {
         cancelFade()
         fade = Fade(kind: kind, start: fadeNow(), duration: seconds,
                     incomingGain: currentDeck.gain, outgoingGain: outgoingDeck?.gain ?? 0)
-        diagnosticTrace?.event(kind == .crossfade ? "audio.crossfade.begin" : "audio.sleepFade.begin", "durationSeconds=\(Int(seconds))" + (kind == .crossfade ? "; curve=smoothstep-equal-power" : "; curve=smoothstep"))
+        diagnosticTrace?.event(kind == .crossfade ? "audio.crossfade.begin" : "audio.sleepFade.begin", "durationSeconds=\(seconds)" + (kind == .crossfade ? "; curve=smoothstep-sequential; fadeOutSeconds=0.8; silenceSeconds=0.5; fadeInSeconds=1.2" : "; curve=smoothstep"))
         guard automaticFadeTicks else { return }
         let ticker = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.advanceAudioFade() }
@@ -207,15 +224,32 @@ final class RadioPlayer: ObservableObject {
 
     /// Monotonic-time envelope; tests drive the same update with a virtual clock.
     func advanceAudioFade() {
-        guard let fade else { return }
-        let progress = Float(min(1, max(0, (fadeNow() - fade.start) / fade.duration)))
+        guard var fade else { return }
+        let now = fadeNow()
+        var progress = Float(min(1, max(0, (now - fade.start) / fade.duration)))
         if fade.kind == .crossfade {
-            // Smoothstep gives zero slope at both ends; the sine/cosine pair
-            // preserves summed power for unrelated streams with matching levels.
-            let eased = progress * progress * (3 - 2 * progress)
-            let angle = Double(eased) * .pi / 2
-            currentDeck.gain = Float(sin(angle))
-            outgoingDeck?.gain = fade.outgoingGain * Float(cos(angle))
+            // Reuse the eased sine/cosine shapes in separate phases: the old
+            // station reaches silence, then both stay silent for 0.5 seconds.
+            let fadeOutProgress = Float(min(1, max(0, (now - fade.start) / Self.stationFadeOutDuration)))
+            if fade.silenceStartedAt == nil && fadeOutProgress < 1 {
+                let phase = fadeOutProgress
+                let eased = phase * phase * (3 - 2 * phase)
+                currentDeck.gain = 0
+                outgoingDeck?.gain = fade.outgoingGain * Float(cos(Double(eased) * .pi / 2))
+            } else {
+                // Start the interval when this update actually silences the old
+                // deck. A delayed tick must not skip the intentional silence.
+                let silenceStartedAt = fade.silenceStartedAt ?? now
+                if fade.silenceStartedAt == nil {
+                    fade.silenceStartedAt = silenceStartedAt
+                    self.fade = fade
+                }
+                let phase = Float(min(1, max(0, (now - silenceStartedAt - Self.stationSilenceDuration) / Self.stationFadeInDuration)))
+                let eased = phase * phase * (3 - 2 * phase)
+                outgoingDeck?.gain = 0
+                currentDeck.gain = Float(sin(Double(eased) * .pi / 2))
+                progress = phase
+            }
         } else {
             let eased = progress * progress * (3 - 2 * progress)
             currentDeck.gain = fade.incomingGain * (1 - eased)
@@ -247,7 +281,7 @@ final class RadioPlayer: ObservableObject {
         // Called only after the new deck is ready, playing and advancing time.
         currentDeck.gain = 0
         applyVolumes()
-        startFade(.crossfade, seconds: 8)
+        startFade(.crossfade, seconds: Self.stationFadeOutDuration + Self.stationSilenceDuration + Self.stationFadeInDuration)
     }
 
     private func suspendCrossfade() {

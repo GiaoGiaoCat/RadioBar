@@ -3,8 +3,11 @@ import AVFoundation
 
 @MainActor
 private final class TestAudio: AudioPlayback {
-    var volume: Float = 0 { didSet { volumeHistory.append(volume) } }
+    var volume: Float = 0 {
+        didSet { volumeHistory.append(volume); onVolumeChange?() }
+    }
     var volumeHistory: [Float] = []
+    var onVolumeChange: (() -> Void)?
     var url: URL?
     var ready = false
     var advancing = true
@@ -75,7 +78,13 @@ private final class Harness {
                             sleepClockNow: { [unowned self] in sleepInstant },
                             diagnostics: RadioDiagnostics(),
                             makeAudio: { [unowned self] in
-                                let deck = TestAudio(); decks.append(deck); return deck
+                                let deck = TestAudio(); decks.append(deck)
+                                deck.onVolumeChange = { [unowned self] in
+                                    precondition(decks.filter { $0.url != nil && $0.volume > 0 }.count <= 1,
+                                                 "Two stations became audible during a volume write")
+                                    precondition(decks.filter { $0.url != nil }.count <= 2)
+                                }
+                                return deck
                             },
                             fadeNow: { [unowned self] in realTicker ? ProcessInfo.processInfo.systemUptime : clock },
                             automaticFadeTicks: realTicker, playbackNow: { [unowned self] in playbackClock }, pollNanoseconds: 2_000_000,
@@ -87,6 +96,16 @@ private final class Harness {
     func close() {
         radio.pause(); radio.sleepTimer.cancel(); resolver.releaseAll()
         defaults.removePersistentDomain(forName: suite)
+    }
+    func advanceFade(by seconds: TimeInterval) {
+        let end = clock + seconds
+        // Model regular timer delivery; delayed delivery is driven explicitly.
+        while clock + 0.01 < end {
+            clock += 0.01
+            radio.advanceAudioFade()
+        }
+        clock = end
+        radio.advanceAudioFade()
     }
     func initial() async -> TestAudio {
         radio.select(.bcc)
@@ -133,13 +152,15 @@ struct AudioTransitionTests {
         await catalogueReloadDuringTransitionAndRetry()
         await muteAndRestore()
         await muteDuringTransitions()
-        await smoothEqualPowerCurve()
+        await smoothSequentialCurve()
+        await delayedHandoffTick()
         await successfulSwitch()
         await failedSwitch()
         await failedMediaLoad()
         await stalledSwitch()
         await rapidSwitchAndPause()
         await rapidSwitchKeepingNewerAudio()
+        await rapidSwitchAtSilentHandoff()
         await lateResolveAndSleep()
         await sleepDuringCrossfade()
         await sleepOverride()
@@ -315,9 +336,9 @@ struct AudioTransitionTests {
         precondition(h.resolver.calls.count == calls && outgoing.url != nil && incoming.url != nil)
         incoming.connect()
         await wait { h.radio.statusText.en == "Playing" }
-        h.clock += 4; h.radio.advanceAudioFade()
-        near(outgoing.volume, 0.5656854); near(incoming.volume, 0.5656854)
-        h.clock += 4; h.radio.advanceAudioFade()
+        h.clock += 0.4; h.radio.advanceAudioFade()
+        near(outgoing.volume, 0.5656854); near(incoming.volume, 0)
+        h.advanceFade(by: 2.1)
         near(incoming.volume, 0.8)
         precondition(outgoing.url == nil && h.radio.station.menuName.en == "New UFO")
         h.radio.pause()
@@ -330,7 +351,7 @@ struct AudioTransitionTests {
                              urls: [URL(string: "https://fixture.invalid/new-bcc.mp3")!])
         StationCatalog.apply(original.map { $0.id == "bcc" ? newBCC : $0 })
         await wait { h.resolver.calls.contains { $0.id == "bcc" && $0.urls == newBCC.urls } }
-        print("PASS: reloading during a pending switch preserves both decks and the 8s equal-power fade; subsequent automatic retries use updated addresses")
+        print("PASS: reloading during a pending switch preserves both decks and the 2.5s sequential fade with silence; subsequent automatic retries use updated addresses")
     }
 
     @MainActor private static func muteAndRestore() async {
@@ -372,46 +393,86 @@ struct AudioTransitionTests {
         let new = await h.candidate(.ufo)
         new.connect()
         await wait { h.radio.statusText.en == "Playing" }
-        h.clock += 4; h.radio.advanceAudioFade()
+        h.clock += 0.4; h.radio.advanceAudioFade()
         near(old.volume, 0); near(new.volume, 0)
         h.radio.toggleMute()
-        near(old.volume, 0.5656854); near(new.volume, 0.5656854)
+        near(old.volume, 0.5656854); near(new.volume, 0)
+        h.radio.toggleMute()
+        h.advanceFade(by: 0.65)
+        h.radio.toggleMute()
+        near(old.volume, 0); near(new.volume, 0)
+        h.radio.volume = 0.6
+        near(old.volume, 0); near(new.volume, 0)
+        h.radio.volume = 0.8
+        h.radio.toggleMute()
+        h.advanceFade(by: 0.85)
+        near(old.volume, 0); near(new.volume, 0)
+        h.radio.toggleMute()
+        near(old.volume, 0); near(new.volume, 0.5656854)
         h.radio.toggleMute()
         h.expire()
         h.clock += 3; h.radio.advanceAudioFade()
         near(old.volume, 0); near(new.volume, 0)
         h.radio.toggleMute()
-        near(old.volume, 0.2828427); near(new.volume, 0.2828427)
+        near(old.volume, 0); near(new.volume, 0.2828427)
         h.clock += 3; h.radio.advanceAudioFade()
         near(old.volume, 0); near(new.volume, 0)
         precondition(old.url == nil && new.url == nil && !h.radio.wantsPlayback)
         precondition(h.radio.volume == 0.8 && h.defaults.double(forKey: "volume") == 0.8)
-        print("PASS: mute gates both crossfade decks and newly connected audio; unmute honors current fade gains; sleep fade still finishes with volume preference intact")
+        print("PASS: mute gates both sequential phases; unmute/volume changes preserve the silent interval; sleep fade finishes with volume preference intact")
     }
 
-    @MainActor private static func smoothEqualPowerCurve() async {
+    @MainActor private static func smoothSequentialCurve() async {
         let h = Harness(); defer { h.close() }
         let old = await h.initial()
         h.radio.volume = 1
         let new = await h.candidate(.ufo)
         new.connect(); await wait { h.radio.statusText.en == "Playing" }
         let start = h.clock
-        let checkpoints: [(Double, Float, Float)] = [
-            (0, 1, 0), (0.08, 0.9999999, 0.0004681),
-            (2, 0.9700313, 0.2429802), (4, 0.7071068, 0.7071068),
-            (6, 0.2429802, 0.9700313), (7.92, 0.0004681, 0.9999999), (8, 0, 1)
+        let checkpoints: [Int: (Float, Float)] = [
+            0: (1, 0), 8: (0.9999999, 0), 200: (0.9700313, 0),
+            400: (0.7071068, 0), 600: (0.2429802, 0), 792: (0.0004681, 0),
+            800: (0, 0), 1050: (0, 0), 1300: (0, 0), 1312: (0, 0.0004681),
+            1600: (0, 0.2429802), 1900: (0, 0.7071068), 2200: (0, 0.9700313),
+            2488: (0, 0.9999999), 2500: (0, 1)
         ]
         var previousOld: Float = 1
         var previousNew: Float = 0
-        for (elapsed, expectedOld, expectedNew) in checkpoints {
-            h.clock = start + elapsed; h.radio.advanceAudioFade()
-            precondition(abs(old.volume - expectedOld) < 0.0001 && abs(new.volume - expectedNew) < 0.0001)
-            precondition(abs(old.volume * old.volume + new.volume * new.volume - 1) < 0.00001)
+        for millisecond in 0...2500 {
+            h.clock = start + Double(millisecond) / 1000; h.radio.advanceAudioFade()
+            if let (expectedOld, expectedNew) = checkpoints[millisecond] {
+                precondition(abs(old.volume - expectedOld) < 0.0001 && abs(new.volume - expectedNew) < 0.0001)
+            }
+            precondition(old.volume == 0 || new.volume == 0)
+            if millisecond <= 1300 { precondition(new.volume == 0) }
+            if millisecond >= 800 { precondition(old.volume == 0) }
             precondition(old.volume <= previousOld && new.volume >= previousNew)
-            precondition(h.decks.filter { $0.url != nil }.count == (elapsed < 8 ? 2 : 1))
+            precondition(h.decks.filter { $0.url != nil }.count == (millisecond < 2500 ? 2 : 1))
             previousOld = old.volume; previousNew = new.volume
         }
-        print("PASS: 8s smooth equal-power envelope has gentle endpoints, monotonic gains, unit summed power and exact final deck release")
+        print("PASS: 2501 envelope samples verify 0.8s out + 0.5s silence + 1.2s in, gentle endpoints, monotonic gains, no overlap and release at 2.5s")
+        precondition(h.radio.diagnostics.report().contains("durationSeconds=2.5"))
+    }
+
+    @MainActor private static func delayedHandoffTick() async {
+        let h = Harness(); defer { h.close() }
+        let old = await h.initial(); let new = await h.candidate(.ufo)
+        new.connect(); await wait { h.radio.statusText.en == "Playing" }
+        h.clock += 0.4; h.radio.advanceAudioFade()
+        precondition(old.volume > 0 && new.volume == 0)
+        // Skip the scheduled handoff: silence must still last a full 0.5s
+        // from when the old deck actually reaches zero.
+        h.clock += 1.5; h.radio.advanceAudioFade()
+        precondition(old.volume == 0 && new.volume == 0)
+        h.clock += 0.49; h.radio.advanceAudioFade()
+        precondition(old.volume == 0 && new.volume == 0)
+        h.clock += 0.01; h.radio.advanceAudioFade()
+        near(old.volume, 0); near(new.volume, 0)
+        h.clock += 0.6; h.radio.advanceAudioFade()
+        near(old.volume, 0); near(new.volume, 0.5656854)
+        h.clock += 10; h.radio.advanceAudioFade()
+        precondition(old.url == nil && new.volume == 0.8)
+        print("PASS: delayed ticks preserve a full 0.5s silent interval after the old deck reaches zero, without overlap or stale completion")
     }
 
     @MainActor private static func successfulSwitch() async {
@@ -428,15 +489,20 @@ struct AudioTransitionTests {
         near(old.volume, 0.8); near(new.volume, 0)
         new.advancing = true
         await wait { h.radio.statusText.en == "Playing" }
-        h.clock += 4; h.radio.advanceAudioFade()
-        near(old.volume, 0.5656854); near(new.volume, 0.5656854)
+        h.clock += 0.4; h.radio.advanceAudioFade()
+        near(old.volume, 0.5656854); near(new.volume, 0)
         h.radio.volume = 0.6
-        near(old.volume, 0.4242641); near(new.volume, 0.4242641)
-        h.clock += 4; h.radio.advanceAudioFade()
+        near(old.volume, 0.4242641); near(new.volume, 0)
+        h.advanceFade(by: 1.5)
+        near(old.volume, 0); near(new.volume, 0.4242641)
+        h.radio.volume = 0.3
+        near(old.volume, 0); near(new.volume, 0.212132)
+        h.radio.volume = 0.6
+        h.advanceFade(by: 0.6)
         near(old.volume, 0); near(new.volume, 0.6)
         precondition(old.url == nil && new.url != nil && h.radio.station == .ufo)
         precondition(h.defaults.double(forKey: "volume") == 0.6)
-        print("PASS: new stream must be ready, playing and progressing; 8s smooth equal-power crossfade endpoints/midpoint and live volume changes; old deck released")
+        print("PASS: readiness and timeline progress gate the 2.5s sequential transition; live volume changes work in both phases and the old deck is released")
     }
 
     @MainActor private static func failedSwitch() async {
@@ -455,20 +521,30 @@ struct AudioTransitionTests {
     }
 
     @MainActor private static func stalledSwitch() async {
-        let h = Harness(); defer { h.close() }
-        let old = await h.initial(); let new = await h.candidate(.ufo)
-        new.connect(); await wait { h.radio.statusText.en == "Playing" }
-        h.clock += 2; h.radio.advanceAudioFade()
-        near(old.volume, 0.776025); near(new.volume, 0.194384)
-        new.control = .waitingToPlayAtSpecifiedRate
-        await wait { h.radio.statusText.en == "Buffering…" }
-        near(old.volume, 0.8); near(new.volume, 0)
-        h.clock += 8; h.radio.advanceAudioFade()
-        near(old.volume, 0.8); near(new.volume, 0)
-        new.connect(); await wait { h.radio.statusText.en == "Playing" }
-        h.clock += 8; h.radio.advanceAudioFade()
-        near(old.volume, 0); near(new.volume, 0.8)
-        print("PASS: buffering aborts an in-progress crossfade, restores old audio, and only restarts after new playback recovers")
+        // Buffering or failure in either phase or throughout the silent interval
+        // must silence the incoming deck before restoring the outgoing one.
+        for elapsed in [0.4, 0.8, 1.05, 1.3, 1.9] {
+            for fails in [false, true] {
+                let h = Harness(); defer { h.close() }
+                let old = await h.initial(); let new = await h.candidate(.ufo)
+                new.connect(); await wait { h.radio.statusText.en == "Playing" }
+                h.advanceFade(by: elapsed)
+                if fails {
+                    new.failed = true
+                    await wait { h.resolver.calls.filter { $0 == .ufo }.count == 2 && new.url != nil && !new.failed }
+                } else {
+                    new.control = .waitingToPlayAtSpecifiedRate
+                    await wait { h.radio.statusText.en == "Buffering…" }
+                }
+                near(old.volume, 0.8); near(new.volume, 0)
+                h.advanceFade(by: 2.5)
+                near(old.volume, 0.8); near(new.volume, 0)
+                new.connect(); await wait { h.radio.statusText.en == "Playing" }
+                h.advanceFade(by: 2.5)
+                near(old.volume, 0); near(new.volume, 0.8)
+            }
+        }
+        print("PASS: buffering/failure in either phase or the silent interval restores only the old audio; a fresh 2.5s transition waits for recovered playback")
     }
 
     @MainActor private static func failedMediaLoad() async {
@@ -488,12 +564,12 @@ struct AudioTransitionTests {
         let h = Harness(); defer { h.close() }
         let old = await h.initial(); let second = await h.candidate(.ufo)
         second.connect(); await wait { h.radio.statusText.en == "Playing" }
-        h.clock += 1; h.radio.advanceAudioFade()
+        h.clock += 0.4; h.radio.advanceAudioFade()
         let third = await h.candidate(.guangdong)
         near(old.volume, 0.8); near(second.volume, 0); near(third.volume, 0)
         precondition(second.url == nil)
         third.connect(); await wait { h.radio.statusText.en == "Playing" }
-        h.clock += 2; h.radio.advanceAudioFade()
+        h.clock += 0.4; h.radio.advanceAudioFade()
         h.radio.pause()
         h.clock += 20; h.radio.advanceAudioFade()
         precondition(h.decks.allSatisfy { $0.url == nil && $0.volume == 0 })
@@ -535,25 +611,57 @@ struct AudioTransitionTests {
         let h = Harness(); defer { h.close() }
         let old = await h.initial(); let newer = await h.candidate(.ufo)
         newer.connect(); await wait { h.radio.statusText.en == "Playing" }
-        h.clock += 6; h.radio.advanceAudioFade()
+        h.advanceFade(by: 1.9)
         let pending = await h.candidate(.guangdong)
         near(old.volume, 0); near(newer.volume, 0.8); near(pending.volume, 0)
         precondition(old.url == nil && newer.url != nil)
-        print("PASS: rapid switching late in a crossfade retains the newer louder station and releases the earlier one")
+        pending.connect(); await wait { h.radio.statusText.en == "Playing" }
+        h.advanceFade(by: 1.9)
+        h.radio.pause(); h.clock += 10; h.radio.advanceAudioFade()
+        precondition(h.decks.allSatisfy { $0.url == nil && $0.volume == 0 })
+        print("PASS: rapid switching during fade-in retains the newer audible station; pause cancels both phases and cannot revive audio")
+    }
+
+    @MainActor private static func rapidSwitchAtSilentHandoff() async {
+        for elapsed in [0.8, 1.05, 1.3] {
+            let h = Harness(); defer { h.close() }
+            let old = await h.initial(); let newer = await h.candidate(.ufo)
+            newer.connect(); await wait { h.radio.statusText.en == "Playing" }
+            h.advanceFade(by: elapsed)
+            precondition(old.volume == 0 && newer.volume == 0)
+            let pending = await h.candidate(.guangdong)
+            precondition(old.url == nil && newer.url != nil && pending.volume == 0)
+            near(newer.volume, 0.8)
+            pending.connect(); await wait { h.radio.statusText.en == "Playing" }
+            h.advanceFade(by: 2.5)
+            precondition(newer.url == nil && pending.volume == 0.8)
+        }
+        print("PASS: rapid switches at either edge or the middle of the silent interval keep a proven playing deck and still transition sequentially")
+        let h = Harness(); defer { h.close() }
+        _ = await h.initial(); let incoming = await h.candidate(.ufo)
+        incoming.connect(); await wait { h.radio.statusText.en == "Playing" }
+        h.advanceFade(by: 1.05)
+        h.radio.pause(); h.clock += 10; h.radio.advanceAudioFade()
+        precondition(h.decks.allSatisfy { $0.url == nil && $0.volume == 0 })
+        precondition(!h.radio.wantsPlayback && !h.radio.isPlaying)
+        print("PASS: pause in the silent interval cancels the pending fade-in and cannot revive either deck")
     }
 
     @MainActor private static func sleepDuringCrossfade() async {
-        let h = Harness(); defer { h.close() }
-        let old = await h.initial(); let new = await h.candidate(.ufo)
-        new.connect(); await wait { h.radio.statusText.en == "Playing" }
-        h.clock += 4; h.radio.advanceAudioFade()
-        h.expire()
-        h.clock += 3; h.radio.advanceAudioFade()
-        near(old.volume, 0.2828427); near(new.volume, 0.2828427)
-        h.clock += 3; h.radio.advanceAudioFade()
-        precondition(old.url == nil && new.url == nil && !h.radio.isPlaying)
-        precondition(h.radio.volume == 0.8)
-        print("PASS: sleep countdown during a crossfade fades both currently audible gains to silence over 6s")
+        for elapsed in [0.4, 0.8, 1.05, 1.3, 1.9] {
+            let h = Harness(); defer { h.close() }
+            let old = await h.initial(); let new = await h.candidate(.ufo)
+            new.connect(); await wait { h.radio.statusText.en == "Playing" }
+            h.advanceFade(by: elapsed)
+            h.expire()
+            h.clock += 3; h.radio.advanceAudioFade()
+            near(old.volume, elapsed < 0.8 ? 0.2828427 : 0)
+            near(new.volume, elapsed > 1.3 ? 0.2828427 : 0)
+            h.clock += 3; h.radio.advanceAudioFade()
+            precondition(old.url == nil && new.url == nil && !h.radio.isPlaying)
+            precondition(h.radio.volume == 0.8)
+        }
+        print("PASS: sleep expiry preserves 6s fading for audible audio; throughout the silent interval it stops immediately without starting fade-in")
     }
 
     @MainActor private static func sleepOverride() async {
@@ -584,11 +692,15 @@ struct AudioTransitionTests {
         let old = await h.initial(); let new = await h.candidate(.ufo)
         new.connect(); await wait { h.radio.statusText.en == "Playing" }
         pumpRunLoop(0.6)
-        precondition(old.volume > 0 && old.volume < 0.8 && new.volume > 0 && new.volume < 0.8)
-        pumpRunLoop(7.6)
+        precondition(old.volume > 0 && old.volume < 0.8 && new.volume == 0)
+        pumpRunLoop(0.45)
+        precondition(old.volume == 0 && new.volume == 0 && old.url != nil && new.url != nil)
+        pumpRunLoop(0.85)
+        precondition(old.volume == 0 && new.volume > 0 && new.volume < 0.8 && old.url != nil)
+        pumpRunLoop(0.8)
         precondition(old.url == nil && old.volume == 0 && new.url != nil)
         near(new.volume, 0.8)
-        print("PASS: actual main-run-loop crossfade timer completes in 8s without an open menu")
+        print("PASS: actual main-run-loop timer includes the silent interval and completes in 2.5s without an open menu")
     }
 
     @MainActor private static func pumpRunLoop(_ seconds: TimeInterval) {

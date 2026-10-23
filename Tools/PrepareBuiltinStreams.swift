@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import CryptoKit
 
 @main
 struct PrepareBuiltinStreams {
@@ -23,13 +24,50 @@ struct PrepareBuiltinStreams {
             } else {
                 data = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
             }
-            _ = try BuiltinStreams.decode(data)
+            let streams = try BuiltinStreams.decode(data)
+            let key = SymmetricKey(size: .bits256)
+            let keyBytes = key.withUnsafeBytes { Array($0) }
+            let mask = SymmetricKey(size: .bits256).withUnsafeBytes { Array($0) }
+            let order = Array(UInt8(0)..<UInt8(32)).shuffled()
+            let masked = order.enumerated().map { keyBytes[Int($0.element)] ^ mask[$0.offset] }
+            let sealed = try AES.GCM.seal(data, using: key, authenticating: BuiltinStreams.envelopeHeader)
+            guard let combined = sealed.combined else { throw BuiltinStreams.ConfigurationError.invalid }
+            let encrypted = BuiltinStreams.envelopeHeader + combined
+            let restored = BuiltinStreams.restoreKey(masked, mask, order)
+            guard try BuiltinStreams.open(encrypted, key: restored) == streams else { throw BuiltinStreams.ConfigurationError.invalid }
+            let source = """
+            // Generated for this build only. Do not commit or package this source.
+            import Foundation
+            enum BuiltinStreamKey {
+                static func material() -> Data {
+                    BuiltinStreams.restoreKey(\(masked), \(mask), \(order))
+                }
+            }
+
+            """
             let destination = URL(fileURLWithPath: CommandLine.arguments[2])
-            try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-            // Copy original bytes after validation; never normalize the query or drop parameters.
-            try data.write(to: destination, options: .atomic)
-            // Bundled resources must remain readable when an administrator installs for other users.
-            try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: destination.path)
+            let manager = FileManager.default
+            let names: Set<String> = ["builtin-streams.bin", "BuiltinStreamKey.swift"]
+            let exists = manager.fileExists(atPath: destination.path)
+            if exists {
+                // This directory belongs exclusively to the generator. Never replace unrelated files.
+                guard Set(try manager.contentsOfDirectory(atPath: destination.path)).isSubset(of: names) else {
+                    throw BuiltinStreams.ConfigurationError.invalid
+                }
+            }
+            let parent = destination.deletingLastPathComponent()
+            try manager.createDirectory(at: parent, withIntermediateDirectories: true)
+            let stage = parent.appendingPathComponent(".RadioBar-streams-" + UUID().uuidString)
+            try manager.createDirectory(at: stage, withIntermediateDirectories: false)
+            defer { try? manager.removeItem(at: stage) }
+            let resource = stage.appendingPathComponent("builtin-streams.bin")
+            try encrypted.write(to: resource)
+            try Data(source.utf8).write(to: stage.appendingPathComponent("BuiltinStreamKey.swift"))
+            // Readable for other users once copied into an installed App; key source remains 0600.
+            try manager.setAttributes([.posixPermissions: 0o644], ofItemAtPath: resource.path)
+            // Commit the pair together. Failed validation or generation preserves the prior pair.
+            let status = exists ? renamex_np(stage.path, destination.path, UInt32(RENAME_SWAP)) : rename(stage.path, destination.path)
+            guard status == 0 else { throw BuiltinStreams.ConfigurationError.invalid }
         } catch {
             fputs("Cannot prepare built-in streams. Check both Secrets or private/builtin-streams.json; existing output kept.\n", stderr)
             exit(1)

@@ -5,5 +5,5 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [.executable(name: "RadioBar", targets: ["RadioBar"])],
     dependencies: [.package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.0")],
-    targets: [.executableTarget(name: "RadioBar", dependencies: [.product(name: "Sparkle", package: "Sparkle")], resources: [.copy("Resources/stations.default.json"), .copy("Resources/builtin-streams.json")])]
+    targets: [.executableTarget(name: "RadioBar", dependencies: [.product(name: "Sparkle", package: "Sparkle")], resources: [.copy("Resources/stations.default.json"), .copy("Generated/builtin-streams.bin")])]
 )

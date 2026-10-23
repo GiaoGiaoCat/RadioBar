@@ -10,3 +10,4 @@ DerivedData/
 # Local private build inputs; never commit stream URLs.
 /private/
 /Sources/RadioBar/Resources/builtin-streams.json
+/Sources/RadioBar/Generated/

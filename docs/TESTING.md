@@ -2,7 +2,17 @@
 
 本文维护可执行入口、最新结果和验收缺口；旧逐次版本流水账已合并，完整记录保存在本地被 Git 忽略的重建前源码备份中。版本说明见 [CHANGELOG](../CHANGELOG.md)，当前状态见 [HANDOFF](HANDOFF.md)。
 
-## 2.0.1（108）本轮验证
+## 2.0.2（109）本轮验证
+
+内置地址资源改为 AES-256-GCM 密文，构建生成随机密钥及混淆 Swift 源码，App 在内存校验解密。输入来源、固定选址、完整查询参数、播放过渡、配置和诊断规则保持。以下为本地验证结果；用户随后授权提交、推送 `main` 与 `v2.0.2`，由 Actions 构建发布。按用户要求不跟踪最终远端结果或代为安装。
+
+- 内置地址专项通过：14 类无效输入、13 项来源／脱敏／原子配对生成检查；验证每次生成不同密文和密钥材料、完整查询及线路顺序保留、头／nonce／密文／tag 篡改、错误密钥、截断及超限拒绝、禁止明文回退。将实际生成密钥编入隔离 App，生产 Bundle.main 加载验证本地与 Secrets 优先级，缺失、损坏及跨构建错配安全失败。日志 `build/encrypted-stream-tests.log`。
+- 完整 `./test.sh` 通过，日志 `build/encrypted-full-tests.log`。初次沙箱中的现有配置文件协调断言失败后，在允许的本机环境完整复验通过；包括诊断脱敏、配置／偏好、音频、同步、原生拖放和 Dock。未重复实际计时音频专项，播放过渡实现未改。
+- `./build.sh`、Xcode Release 增量构建、SwiftPM Release 均通过，日志分别为 `build/encrypted-build.log`、`build/encrypted-xcode.log`、`build/encrypted-spm.log`。Xcode 移除旧包内明文资源，并用本轮生成密钥验证包内两台地址与私有输入完全一致、主二进制不含连续原始密钥，记录 `build/encrypted-xcode-resource-verification.log`。Xcode 保留现有 headermap / AppIntents 提示，未扩展修改。
+- 缺失 Secrets 的真实构建保留旧 ZIP，记录 `build/encrypted-missing-input.log`。最终 ZIP 独立解压后严格 deep codesign、完整 Info.plist、2.0.2 / 109、arm64、macOS 14、默认 JSON 及资源权限通过；所有包内文件未检出两条完整地址、长查询凭据、明文地址 JSON 或生成源码。源码／本轮日志扫描及 private／生成文件忽略检查通过。证据 `build/encrypted-zip-verification.json`、`build/encrypted-codesign.log`；ZIP SHA-256 `43878cfe808e5acfa1dd2158a75d2185671ce35041d0e09e77de122a7d2973ed`。
+- 更新说明设置预览生成 127 张，日志 `build/encrypted-settings.log`，图片 `build/encrypted-settings/`；实际检查简繁中文／英文、浅深色的六张展开日志图，新说明和 2.0.2（109）标记完整、无截断。文档本地链接与 `git diff --check` 通过。本轮未联网播放、未安装，未读取更新私钥、签署更新源或执行 Sparkle 安装升级。当前仍为 ad-hoc 签名、未公证；包内混淆不能证明无法逆向提取。
+
+## 2.0.1（108）验证记录
 
 Mac 切台改为 0.8 秒淡出旧台、0.5 秒双路静音、1.2 秒淡入新台，正常交接共 2.5 秒；静音从旧台实际归零时开始计时，回调延迟不跳过间隔，总时长相应顺延。本轮完成 2.0.1（108），同步双语日志和行为文档；用户随后授权提交并推送 `main` 与 `v2.0.1` 标签。GitHub 发布由标签工作流执行，结果另行核对，本机不安装。
 
@@ -24,7 +34,7 @@ Mac 切台改为 0.8 秒淡出旧台、0.5 秒双路静音、1.2 秒淡入新台
 
 ## 沿用的功能覆盖与证据
 
-以下是 2026-10-23 的 2.0.0 基线已经取得的结果；本轮变更后的验证以上方 2.0.1 记录为准：
+以下是 2026-10-23 的 2.0.0 基线已经取得的结果；本轮变更后的验证以上方当前版本记录为准：
 
 - 完整 `./test.sh` 通过，覆盖固定线路选址、重试预算、配置与偏好、38 项 v2 协议／旧事务和 69 项 Mac 发布／备份检查，以及音频逻辑、原生拖放、Dock；日志 `build/private-stream-tests.log`。首次文件协调／图形沙箱失败已在允许环境复验。
 - 私有地址注入专项覆盖完整查询与顺序、14 类无效载荷、10 项 Secrets／本地优先级、Actions 不回退、脱敏错误、失败保留输出和包内资源权限；日志 `build/private-stream-input-tests.log`。缺少输入的真实构建保留旧 ZIP，记录 `build/private-stream-missing-input.log`。
@@ -57,15 +67,15 @@ Mac 切台改为 0.8 秒淡出旧台、0.5 秒双路静音、1.2 秒淡入新台
 
 ### 构建、测试和联网探测
 
-内置地址注入使用 `Tools/prepare-builtin-streams.sh OUTPUT_JSON`，由 `build.sh`、Xcode 和联网专项复用；用 Swift 编译 `Tools/PrepareBuiltinStreams.swift` 与生产 `BuiltinStreams.swift`，不需要额外 Python 依赖。成对环境变量优先，否则读取 `private/builtin-streams.json`；Actions 禁止本地回退。参数仅为输出路径，禁止将地址作为命令行参数、日志或缓存内容输出。SwiftPM 的资源准备步骤见 README。
+内置地址注入使用 `Tools/prepare-builtin-streams.sh OUTPUT_DIRECTORY`，由 `build.sh`、Xcode、联网和更新专项复用；用 Swift / CryptoKit 编译生成器及生产 `BuiltinStreams.swift`，不需要额外 Python 依赖。成对环境变量优先，否则读取 `private/builtin-streams.json`；Actions 禁止本地回退。输出目录专用于随机 AES-256-GCM 密文 `builtin-streams.bin` 与混淆密钥 `BuiltinStreamKey.swift`，目录原子替换保证配对，含无关文件时拒绝覆盖。密文 0644、源码 0600，不生成磁盘明文副本；CLT 临时产物退出清理。Xcode 编译前生成并在原生 Sources 阶段编译密钥，SwiftPM 预生成到忽略的 Generated 目录；密钥源码不打包。参数仅为输出目录，禁止输出地址、密钥或解析错误正文。SwiftPM 步骤见 README。
 
-离线测试／预览的 `RADIOBAR_TESTING` 使用 `.invalid` 假地址；联网专项另加 `RADIOBAR_LIVE_STREAMS` 并在隔离 App 中注入资源，不得用普通离线假地址声称真实播放通过。正式 App 缺失／损坏资源时安全返回空地址并由既有连接失败路径处理，不从开发者目录读取私有数据。
+离线测试／预览的 `RADIOBAR_TESTING` 使用 `.invalid` 假地址，无需生成密钥；生成器／解码测试用 `RADIOBAR_STREAM_TOOL` 排除包内静态加载。联网专项另加 `RADIOBAR_LIVE_STREAMS` 并在隔离 App 中注入配对密文／编译密钥，不得用普通离线假地址声称真实播放通过。正式 App 缺失／损坏／篡改／错配资源时安全返回空地址，禁止明文回退并由既有连接失败路径处理，不从开发者目录读取私有数据。
 
 | 可执行入口 | 前置条件、输出与边界 |
 |---|---|
 | `./build.sh` | CLT Release arm64/macOS 14 构建、组装、ad-hoc 签名；自动调用 SDK 获取脚本，首次或缓存损坏时需要网络。App 与新 ZIP 均检查无隔离属性后替换 `build/RadioBar-macOS-arm64.zip`，失败保留旧包；不等于 Xcode 构建 |
 | `./test.sh` | 全部离线回归，编译并运行 `Tests/` 中的测试；含v2 配置、旧事务恢复及 Mac 单向发布、音频逻辑、原生排序、Dock 专项。输出可执行程序到 `build/`，不发声；最后 Dock 阶段需图形会话 |
-| `./Tools/Tests/test-builtin-streams.sh` | 内置地址解码与构建输入专项，已纳入 `./test.sh`；检查完整查询参数和顺序、无效载荷、资源缺失／损坏、环境变量成对及优先级、Actions 禁止回退、错误脱敏、失败保留已有资源和输出权限（包内资源 0644，本地私有输入 0600）。使用临时假地址，不读取私有文件或访问网络 |
+| `./Tools/Tests/test-builtin-streams.sh` | 内置地址解码／加密与构建输入专项，已纳入 `./test.sh`；检查完整查询参数和顺序、AES-GCM 认证／错误密钥／截断拒绝、随机生成、生产 Bundle 加载、缺失／损坏／错配及明文不回退、环境变量优先级、Actions 禁止本地回退、错误脱敏、失败保留配对产物和输出权限（密文 0644、密钥源码／本地私有输入 0600）。使用临时假地址，不读取私有文件或访问网络 |
 | `./Tools/Tests/test-mac-station-sync.sh` | 编译当前 Mac 单向发布控制器及设置；隔离目录／偏好验证序号、重试、重新关联、外部修改、旧版迁移、自动发布及备份轮替，输出 `build/MacStationSyncTests`，已接入 `./test.sh`；不访问用户 iCloud 或正式配置 |
 | `./Tools/Tests/test-station-sync.sh` | 编译当前 v2 文件格式、共享配置、文件安全及旧事务恢复源码，输出 `build/StationSyncTests` 后运行；使用隔离临时目录和偏好，无云端、网络、正式配置及音频操作，已接入 `./test.sh` |
 | `./Tools/Tests/test-station-sync.sh --typecheck-ios` | 需完整 Xcode 与 iOS SDK；对共享基础及其既有 Foundation 依赖分别检查真机／模拟器类型兼容，只使用模块缓存，不安装或进行 iCloud 验收 |

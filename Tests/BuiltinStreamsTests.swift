@@ -1,15 +1,14 @@
 import Foundation
+import CryptoKit
 
 @main
 struct BuiltinStreamsTests {
     static func main() throws {
         func check(_ condition: Bool) { precondition(condition) }
         let manager = FileManager.default
-        let root = manager.temporaryDirectory.appendingPathComponent("RadioBar-BuiltinStreamsTests-" + UUID().uuidString)
-        try manager.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? manager.removeItem(at: root) }
+        let root = URL(fileURLWithPath: CommandLine.arguments[2])
         let input = root.appendingPathComponent("input.json")
-        let output = root.appendingPathComponent("output.json")
+        let output = root.appendingPathComponent("Generated")
         let kiss = "https://fixture.invalid/kiss.m3u8?token=FAKE%2Bvalue&x=a+b&x=%2F&expires=1"
         let cnr = "https://fixture.invalid/cnr.m3u8?empty=&encoded=%26%3D"
         let payload = ["builtin.kiss": [kiss], "builtin.music-radio": [cnr]]
@@ -36,10 +35,41 @@ struct BuiltinStreamsTests {
                      ["https://fixture.invalid/a\u{0}"], [String(repeating: "a", count: 8193)]] {
             rejects(try data(["builtin.kiss": urls, "builtin.music-radio": [cnr]]))
         }
+        let key = Data((0..<32).map(UInt8.init))
+        let mask = [UInt8](repeating: 0xA5, count: 32)
+        let order = Array((UInt8(0)..<UInt8(32)).reversed())
+        let masked = order.map { key[Int($0)] ^ 0xA5 }
+        check(BuiltinStreams.restoreKey(masked, mask, order) == key)
+        check(BuiltinStreams.restoreKey(masked, mask, [UInt8](repeating: 0, count: 32)).isEmpty)
+        check(BuiltinStreams.restoreKey([], mask, order).isEmpty)
+        func seal(_ plaintext: Data) throws -> Data {
+            BuiltinStreams.envelopeHeader + (try AES.GCM.seal(plaintext, using: SymmetricKey(data: key), authenticating: BuiltinStreams.envelopeHeader).combined!)
+        }
+        let encrypted = try seal(valid)
+        check(try BuiltinStreams.open(encrypted, key: key) == decoded)
+        check(try BuiltinStreams.open(seal(data(ordered)), key: key)["builtin.kiss"]?.map(\.absoluteString) == [kiss, cnr])
+        check(encrypted != (try seal(valid))) // Fresh nonce for the same input.
+        func rejectsEncrypted(_ bytes: Data, using material: Data = key) {
+            do { _ = try BuiltinStreams.open(bytes, key: material); fatalError("Invalid encrypted resource accepted") }
+            catch { check(error is BuiltinStreams.ConfigurationError) }
+        }
+        rejectsEncrypted(valid) // Never fall back to plaintext.
+        rejectsEncrypted(encrypted, using: Data(repeating: 99, count: 32))
+        rejectsEncrypted(encrypted, using: Data())
+        rejectsEncrypted(try seal(Data("broken JSON".utf8)))
+        rejectsEncrypted(Data(repeating: 0, count: 65_569))
+        for index in [0, 3, 4, 16, encrypted.count - 1] {
+            var tampered = encrypted; tampered[index] ^= 1; rejectsEncrypted(tampered)
+        }
+        for count in [0, 4, 16, 31, encrypted.count - 1] { rejectsEncrypted(encrypted.prefix(count)) }
+        let resource = root.appendingPathComponent("fixture.bin")
+        try encrypted.write(to: resource)
+        check(BuiltinStreams.load(from: resource, key: key) == decoded)
+        check(BuiltinStreams.load(from: nil, key: key).isEmpty)
+        check(BuiltinStreams.load(from: root.appendingPathComponent("missing"), key: key).isEmpty)
+        check(BuiltinStreams.load(from: resource, key: Data()).isEmpty)
         try valid.write(to: input)
-        check(BuiltinStreams.load(from: input)["builtin.kiss"]?.first?.absoluteString == kiss)
-        check(BuiltinStreams.load(from: nil).isEmpty)
-        check(BuiltinStreams.load(from: root.appendingPathComponent("missing")).isEmpty)
+        check(BuiltinStreams.load(from: input, key: key).isEmpty)
         // Build input selection is exercised through the real helper executable, without touching private/.
         let helper = CommandLine.arguments[1]
         var base = ProcessInfo.processInfo.environment
@@ -60,27 +90,45 @@ struct BuiltinStreamsTests {
             check(!text.contains("fixture.invalid") && !text.contains("PRIVATE_SENTINEL"))
             runs += 1
         }
+        func pair() throws -> [Data] {
+            try ["builtin-streams.bin", "BuiltinStreamKey.swift"].map { try Data(contentsOf: output.appendingPathComponent($0)) }
+        }
         try prepare(succeeds: true)
-        check(try Data(contentsOf: output) == valid)
-        let attrs = try manager.attributesOfItem(atPath: output.path)
+        let first = try pair()
+        check(first.allSatisfy { !$0.contains(Data(kiss.utf8)) && !$0.contains(Data(cnr.utf8)) })
+        let attrs = try manager.attributesOfItem(atPath: output.appendingPathComponent("builtin-streams.bin").path)
         check((attrs[.posixPermissions] as? NSNumber)?.intValue == 0o644)
+        let sourceAttrs = try manager.attributesOfItem(atPath: output.appendingPathComponent("BuiltinStreamKey.swift").path)
+        check((sourceAttrs[.posixPermissions] as? NSNumber)?.intValue == 0o600)
+        try prepare(succeeds: true)
+        let second = try pair()
+        check(second[0] != first[0] && second[1] != first[1])
         // Environment wins as a complete pair; never combine a partial Secret with the local file.
         try prepare(["KISS_STREAM_URL": cnr, "CNR_STREAM_URL": kiss], succeeds: true)
-        let swapped = try Data(contentsOf: output)
-        check(try BuiltinStreams.decode(swapped)["builtin.kiss"]?.first?.absoluteString == cnr)
+        let swapped = try pair()
+        try manager.copyItem(at: output, to: root.appendingPathComponent("Swapped"))
         for overrides in [["KISS_STREAM_URL": kiss], ["KISS_STREAM_URL": "", "CNR_STREAM_URL": cnr],
                           ["KISS_STREAM_URL": "PRIVATE_SENTINEL invalid", "CNR_STREAM_URL": cnr],
                           ["GITHUB_ACTIONS": "true"], ["GITHUB_ACTIONS": "true", "CNR_STREAM_URL": cnr]] {
             try prepare(overrides, succeeds: false)
-            check(try Data(contentsOf: output) == swapped)
+            check(try pair() == swapped)
         }
         try prepare(["GITHUB_ACTIONS": "true", "KISS_STREAM_URL": kiss, "CNR_STREAM_URL": cnr], succeeds: true)
-        check(try BuiltinStreams.decode(Data(contentsOf: output)) == decoded)
+        let actionPair = try pair()
         try Data("PRIVATE_SENTINEL broken JSON".utf8).write(to: input)
         try prepare(succeeds: false)
-        check(BuiltinStreams.load(from: input).isEmpty)
+        check(try pair() == actionPair)
         try manager.removeItem(at: input)
         try prepare(succeeds: false)
-        print("PASS: built-in streams: exact queries/order, \(rejected) invalid payloads, safe resource loading, \(runs) input selection/log/atomic output cases")
+        check(try pair() == actionPair)
+        try valid.write(to: input)
+        // Unrelated output contents must not be replaced or removed.
+        let sentinel = output.appendingPathComponent("unrelated")
+        try Data("keep".utf8).write(to: sentinel)
+        try prepare(succeeds: false)
+        check(try pair() == actionPair && Data(contentsOf: sentinel) == Data("keep".utf8))
+        try manager.removeItem(at: sentinel)
+        try prepare(succeeds: true)
+        print("PASS: built-in streams: exact queries/order, \(rejected) invalid payloads, AES-GCM tamper/wrong-key/truncation rejection, randomized builds, \(runs) input selection/log/atomic pair cases")
     }
 }

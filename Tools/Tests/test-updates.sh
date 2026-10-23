@@ -25,14 +25,15 @@ done
 port=$(cat "$STAGE/port")
 APP="$STAGE/UpdateProbe.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resources"
-./Tools/prepare-builtin-streams.sh "$APP/Contents/Resources/builtin-streams.json"
+./Tools/prepare-builtin-streams.sh "$STAGE/BuiltinStreams"
+cp -X "$STAGE/BuiltinStreams/builtin-streams.bin" "$APP/Contents/Resources/builtin-streams.bin"
 cp -X Sources/RadioBar/Resources/stations.default.json "$APP/Contents/Resources/stations.default.json"
 cp -X Resources/RadioBar.icns "$APP/Contents/Resources/RadioBar.icns"
 xcrun swiftc -swift-version 5 -parse-as-library -module-cache-path "$PWD/build/ModuleCache" \
   -F "$SPARKLE_ROOT" -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
   Sources/RadioBar/AppLanguage.swift Sources/RadioBar/BuiltinStreams.swift Sources/RadioBar/StationCatalog.swift Sources/RadioBar/StreamResolver.swift \
   Sources/RadioBar/RadioDiagnostics.swift \
-  Sources/RadioBar/AppUpdater.swift Tests/SparkleProbe.swift -o "$APP/Contents/MacOS/RadioBar"
+  Sources/RadioBar/AppUpdater.swift "$STAGE/BuiltinStreams/BuiltinStreamKey.swift" Tests/SparkleProbe.swift -o "$APP/Contents/MacOS/RadioBar"
 /usr/bin/ditto --norsrc "$SPARKLE_ROOT/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier local.victor.RadioBar.UpdateProbe' "$APP/Contents/Info.plist"

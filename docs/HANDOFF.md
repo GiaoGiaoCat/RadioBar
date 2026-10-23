@@ -1,10 +1,10 @@
 # RadioBar 开发交接
 
-更新日期：2026-10-23（Asia/Shanghai）。当前源码版本 **2.0.1（108）**，包含 2.5 秒无叠音切台改动，交付标签为 `v2.0.1`；新仓库以 2.0.0（107）为初始化基线。提交与发布状态以 Git 和对应 Actions 为准，本机未安装新版。继续开发前核对 `Resources/Info.plist`、Git 状态与实际 diff。
+更新日期：2026-10-23（Asia/Shanghai）。当前本地源码 **2.0.2（109）**，内置地址改为 AES-GCM 加密资源及混淆密钥材料；本地测试和构建已完成，用户已授权提交、推送 `main` 及 `v2.0.2`，由 Actions 构建发布；按用户要求不核对最终远端结果，由用户自行安装更新。远端状态以 Git 与 Actions 为准。继续开发前核对 `Resources/Info.plist`、Git 状态与实际 diff。
 
 ## 1. 工作入口与新仓库状态
 
-用户指定同名重建并从 2.0.0 开始维护。当前 `/Users/victor/Github/RadioBar` 使用全新 Git，`main` 以无父提交的 2.0.0 初始化版本为基线，`origin` 为 `git@github.com:GiaoGiaoCat/RadioBar.git`。已核对远端 `v2.0.0` 发布成功；本次用户授权提交切台改动、推送主分支及 `v2.0.1` 标签，后者触发现有发布工作流。不再执行远端删除或重建。重建过程见 [REPOSITORY_REBUILD](REPOSITORY_REBUILD.md)。
+用户指定同名重建并从 2.0.0 开始维护。当前 `/Users/victor/Github/RadioBar` 使用全新 Git，`main` 以无父提交的 2.0.0 初始化版本为基线，`origin` 为 `git@github.com:GiaoGiaoCat/RadioBar.git`。已核对远端 `v2.0.0` 发布成功，2.0.1 切台改动也已提交至当前 main；本轮已获 2.0.2 提交、推送与标签发布授权。不再执行远端删除或重建。重建过程见 [REPOSITORY_REBUILD](REPOSITORY_REBUILD.md)。
 
 重建前源码和完整旧 Git 仅备份一份，位于被忽略的 `private/repository-rebuild-20261023-154311/RadioBar-before-reinit/`。其他五个旧工作目录（含有未提交工作的 iOS 工程）仍关联此备份；已修复指针并核对内容。不要删除／移动备份或从旧目录向同名新仓库推送旧历史。`private/` 不进入首次提交；完整 1.x 文档也在该备份中，新仓库不再保留开发流水账。
 
@@ -22,11 +22,13 @@
 
 ## 3. 内置地址与本机私有资料
 
-`./build.sh` 在临时 App 资源中生成 `builtin-streams.json` 后签名；成对环境变量 `KISS_STREAM_URL` / `CNR_STREAM_URL` 优先，否则读取被 Git 忽略的 `private/builtin-streams.json`（0600）。Actions 必须提供两个 Repository Secrets，不回退本地文件。Xcode 复用同一生成工具；SwiftPM 须按 README 先生成被忽略的资源。App 运行只读包内资源，不访问开发者目录。
+`./build.sh` 从成对环境变量 `KISS_STREAM_URL` / `CNR_STREAM_URL`（优先）或被忽略的 `private/builtin-streams.json`（0600）读取完整输入。Actions 继续只需要原有两个地址 Secrets，禁止本地回退。
 
-离线测试／预览使用假地址，联网专项另行打包真实资源。完整 URL 和查询参数作为不透明数据保留，构建失败不替换旧 ZIP。旧交接输入 `private/fixed-stream-inputs.json` 仅供本地追溯，不是运行或构建依赖。
+生成器每次使用独立随机 AES-256 密钥和 GCM nonce，加密原始 JSON；密钥随机置换并用随机掩码拆分，生成 `BuiltinStreamKey.swift`。密文 `builtin-streams.bin` 与源码在独占生成目录中成对原子更新，失败保留前一组；生成目录含其他文件则拒绝覆盖。CLT 构建在临时目录生成并清理，Xcode 在编译前写入 DerivedSources，SwiftPM 按 README 预生成被忽略的 `Sources/RadioBar/Generated/`。只有密文进入资源，密钥材料编入程序，生成源码不打包、不提交。
 
-新源码和提交不含两条地址及共享凭据，但 App 资源仍可提取；旧仓库、安装包或缓存中的数据不会因新 Git 失效。服务器或凭据轮换需另行授权，本轮未修改 RadioRelay／服务器。
+App 使用 CryptoKit 校验版本头和 GCM 认证后在内存解密，保持完整查询参数与线路顺序；缺失、损坏、篡改、错配均返回空地址，不回退明文或开发者文件。离线测试／预览不需要私有输入或生成密钥，联网专项另行打包真实配对产物。诊断继续脱敏；旧交接输入仅供本地追溯。
+
+此方案提高解压／文本搜索的提取门槛，不能防止逆向或运行时提取；旧源码、安装包和缓存中的明文不会失效。地址加密与 Sparkle 私钥无关，不增加远端 Secret，不修改 RadioRelay／服务器或轮换凭据。
 
 ## 4. 代码地图
 
@@ -105,18 +107,18 @@ loveRadio, classic947, radioParadise, grooveSalad, swissJazz
 
 按 [TESTING](TESTING.md#按改动选择验证) 选择专项；完整离线入口是 `./test.sh`，不是 `swift test`。新增／移动生产源码同步 Xcode Sources 和显式测试清单。图形会话、宏插件、文件协调或回环服务受限时，报告实际通过的范围与环境边界。
 
-用户指定初始化版本为 2.0.0，构建号延续为 107，不重置；后续默认递增 2.0.X 和构建号。2.0.1（108）已同步 Info.plist、双语日志与 CHANGELOG；本次已获用户授权提交、打 tag 并推送 GitHub。检查提交后先推 `main`，再创建／推送 `v2.0.1`，跟踪其 Actions 和发布结果，不在本机安装。不要恢复旧标签或镜像推送旧 Git。
+用户指定初始化版本为 2.0.0，构建号延续为 107，不重置；后续默认递增 2.0.X 和构建号。当前 2.0.2（109）已同步 Info.plist、双语日志与 CHANGELOG，并完成本地验证。用户已授权提交、先推 `main`，再创建／推送 `v2.0.2`，由现有工作流构建、签名并发布；明确要求不代为检查最终结果，自行安装更新。不要恢复旧标签或镜像推送旧 Git。
 
 Actions 的 tag 工作流校验版本、构建、解压验签、生成校验文件与四份签名 appcast，上传草稿后再正式发布。使用自动 `GITHUB_TOKEN` 和以下三个 Repository Secrets，无需额外 PAT：
 
 - `KISS_STREAM_URL`、`CNR_STREAM_URL`：完整固定地址。
 - `SPARKLE_PRIVATE_KEY`：原更新私钥，本机登录钥匙串 account 为 `local.victor.RadioBar`；对应公钥保留在 Info.plist。旧仓库 Secret 不可读回，同名新仓库需重新配置。不要输出、提交、重新生成或擅自更换密钥。
 
-更新组件仍为 Sparkle 2.10.0；生产源为 `https://github.com/GiaoGiaoCat/RadioBar/releases/latest/download/appcast.xml` 及语言变体。签名验证涵盖 feed、说明及 ZIP。按需运行本地签名／更新专项，配置远端 Secret 不是日常测试步骤。推送成功不代表 Actions 或发布成功；后续交付还需核对远端附件和更新源。已核对 [v2.0.0 Actions](https://github.com/GiaoGiaoCat/RadioBar/actions/runs/39924375663) 成功及正式 Release 的六份附件；本次 `v2.0.1` 结果须按其对应工作流和附件另行核对。
+更新组件仍为 Sparkle 2.10.0；生产源为 `https://github.com/GiaoGiaoCat/RadioBar/releases/latest/download/appcast.xml` 及语言变体。签名验证涵盖 feed、说明及 ZIP。按需运行本地签名／更新专项，配置远端 Secret 不是日常测试步骤。推送成功不代表 Actions 或发布成功；后续交付还需核对远端附件和更新源。已核对 [v2.0.0 Actions](https://github.com/GiaoGiaoCat/RadioBar/actions/runs/39924375663) 成功及正式 Release 的六份附件；本次 `v2.0.2` 最终结果由用户自行核对，不把标签推送成功记录为发布成功。
 
 ## 9. 当前验证与限制
 
-测试、构建、资源注入和真实播放范围见 [TESTING](TESTING.md)。2.0.1 本轮将 Mac 切台改为 2.5 秒先淡出、静音间隔后淡入，实际验证结果以 TESTING 的当前记录为准。KISS / 央广曾经用户实际播放确认，但不能据此认定本轮切台听感、全部电台、长时间稳定性、真实鼠标或双端同步已验收；iPhone 需求文档中的 8 秒行为仍描述其原有基线，本轮未修改 iPhone 工作目录。
+测试、构建、资源注入和真实播放范围见 [TESTING](TESTING.md)。当前 2.0.2 新增加密生成／加载专项、完整离线回归、三种构建入口及包内明文排除检查，结果以 TESTING 为准；2.0.1 的 2.5 秒切台行为保持。KISS / 央广曾经用户实际播放确认，但不能据此认定本轮切台听感、全部电台、长时间稳定性、真实鼠标或双端同步已验收；iPhone 需求文档中的 8 秒行为仍描述其原有基线，本轮未修改 iPhone 工作目录。
 
 ## 10. 未选定需求
 

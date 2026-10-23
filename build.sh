@@ -12,14 +12,15 @@ trap 'rm -rf "$STAGE" "$ARCHIVE_STAGE"' EXIT
 APP="$STAGE/RadioBar.app"
 ARCHIVE="$ARCHIVE_STAGE/RadioBar-macOS-arm64.zip"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-./Tools/prepare-builtin-streams.sh "$APP/Contents/Resources/builtin-streams.json"
+./Tools/prepare-builtin-streams.sh "$STAGE/BuiltinStreams"
+cp -X "$STAGE/BuiltinStreams/builtin-streams.bin" "$APP/Contents/Resources/builtin-streams.bin"
 ./Tools/fetch-sparkle.sh
 SDK="$(xcrun --sdk macosx --show-sdk-path)"
 xcrun swiftc -swift-version 5 -O -whole-module-optimization \
   -target arm64-apple-macosx14.0 -sdk "$SDK" \
   -module-cache-path "$PWD/build/ModuleCache" \
   -F "$SPARKLE_ROOT" -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
-  -parse-as-library Sources/RadioBar/*.swift \
+  -parse-as-library Sources/RadioBar/*.swift "$STAGE/BuiltinStreams/BuiltinStreamKey.swift" \
   -o "$APP/Contents/MacOS/RadioBar"
 cp -X Sources/RadioBar/Resources/stations.default.json "$APP/Contents/Resources/stations.default.json"
 cp -X Resources/RadioBar.icns "$APP/Contents/Resources/RadioBar.icns"

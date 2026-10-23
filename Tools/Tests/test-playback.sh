@@ -10,7 +10,8 @@ PROBE_STAGE="$(mktemp -d /private/tmp/RadioBar-probe.XXXXXX)"
 trap 'rm -rf "$PROBE_STAGE"' EXIT
 PROBE="$PROBE_STAGE/PlaybackProbe.app"
 mkdir -p "$PROBE/Contents/MacOS" "$PROBE/Contents/Resources"
-./Tools/prepare-builtin-streams.sh "$PROBE/Contents/Resources/builtin-streams.json"
+./Tools/prepare-builtin-streams.sh "$PROBE_STAGE/BuiltinStreams"
+cp -X "$PROBE_STAGE/BuiltinStreams/builtin-streams.bin" "$PROBE/Contents/Resources/builtin-streams.bin"
 cp -X Resources/Info.plist "$PROBE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleExecutable PlaybackProbe' "$PROBE/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier local.victor.RadioBar.Probe' "$PROBE/Contents/Info.plist"
@@ -20,6 +21,6 @@ xcrun swiftc -D RADIOBAR_TESTING -D RADIOBAR_LIVE_STREAMS -swift-version 5 -targ
   Sources/RadioBar/BuiltinStreams.swift Sources/RadioBar/StationCatalog.swift Sources/RadioBar/StreamResolver.swift \
   Sources/RadioBar/PlaybackPreferences.swift Sources/RadioBar/SleepTimer.swift \
   Sources/RadioBar/AudioPlayback.swift Sources/RadioBar/RadioPlayer.swift \
-  Tools/PlaybackProbe.swift -o "$PROBE/Contents/MacOS/PlaybackProbe"
+  "$PROBE_STAGE/BuiltinStreams/BuiltinStreamKey.swift" Tools/PlaybackProbe.swift -o "$PROBE/Contents/MacOS/PlaybackProbe"
 codesign --force --sign - "$PROBE"
 "$PROBE/Contents/MacOS/PlaybackProbe" "${1:---network-fixed}"

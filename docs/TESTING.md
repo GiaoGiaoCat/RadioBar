@@ -11,7 +11,8 @@
 - 菜单预览 81 张、原有 108 组自然高度及边界检查通过，图片 `build/short-list-menu/`、日志 `build/short-list-menu.log`；全部 81 张与旧菜单源码对应图片字节相同，记录 `build/short-list-pixel-comparison.json`。实际查看英文深色／简体浅色的一台菜单和繁体深色五台菜单，离屏背景仅验证内容布局。
 - 设置预览 127 张通过，日志 `build/short-list-settings.log`、图片 `build/short-list-settings/`；实际查看三语浅深色六张展开日志图，2.0.5（112）及当前版本标记完整。正式构建通过，日志 `build/short-list-build.log`；从最终 ZIP 用 ditto 独立解压，严格 deep codesign、arm64、完整 Info.plist、默认电台与密文资源检查通过，记录 `build/short-list-zip-verification.json`、`build/short-list-codesign.log`。仍为 ad-hoc 签名，未公证。
 - 用户解锁后补充 CUA 界面交互：同一隔离进程内实际操作生产设置开关，逐台执行 7→1→7→1、关闭设置并重开菜单；另确认七台原生菜单隐藏后，坐标点击六个开关缩至一台、坐标关闭设置并重新展开。九份同期几何及汇总在 `build/short-list-mouse/`：七台 256×376、一台 256×232，内容／背景／呈现层匹配，上下边界 9／5 pt，菜单顶部相对按钮始终 2 pt。实际查看系统深色及生产设置切浅色后的一台／七台菜单，无灰条、错位或裁切；全程未重启，结束后从菜单退出测试 App。
-- 菜单呈现由测试控制窗口调用真实 NSStatusBarButton，未将其称为直接鼠标点击系统状态栏图标。用户旧版异常未在隔离原生菜单中自然重现，实际安装版及肉眼偏暗仍由用户复验。未修改播放／配置／偏好或设置窗口的生产生命周期，未重复完整音频、联网与 Dock 回归；现已获得提交、推送 `main` 与 `v2.0.5` 并发布的授权，安装更新由用户自行完成，远端结果见 HANDOFF。
+- 菜单呈现由测试控制窗口调用真实 NSStatusBarButton，未将其称为直接鼠标点击系统状态栏图标。用户旧版异常未在隔离原生菜单中自然重现，实际安装版及肉眼偏暗仍由用户复验。未修改播放／配置／偏好或设置窗口的生产生命周期，未重复完整音频、联网与 Dock 回归；提交、推送 `main` 与 `v2.0.5` 及正式发布已按授权完成，安装更新由用户自行完成。
+- 正式发布 Actions `39994736057` 成功，标签固定修复提交 `8abee1e`；六份公开附件下载核对通过。新编译 `VerifyRelease205Update` 验证四份 feed 与实际 ZIP 的 EdDSA 签名，三语说明与当前源码生成的期望精确一致，latest feed 与标签版本逐字节相同。实际 ZIP 的 checksum／GitHub 摘要、严格 deep codesign、完整 Info.plist、2.0.5／112、arm64 和资源通过；记录 `build/published-v2.0.5/verification.json`、`signatures.log`、`codesign.log`。未读取或替换私钥，未安装更新。
 
 ## 2.0.4（111）本轮验证
 

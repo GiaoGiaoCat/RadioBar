@@ -1,10 +1,10 @@
 # RadioBar 开发交接
 
-更新日期：2026-10-24（Asia/Shanghai）。当前源码 **2.0.5（112）**：按菜单内容自然测量结果同步复用原生窗口尺寸，保持现有配色、材质、布局和系统默认顶部间距。2.0.4 已正式发布；用户随后再次报告隐藏到一台时菜单错位、退出重开恢复。本地受控模型、原生按钮生命周期、预览及构建验签已通过；解锁后也已补 CUA 生产设置开关、关闭设置、菜单重新呈现及隐藏期间 7→1 的交互核对，浅深色均未见错位或灰条。隔离测试未自然重现旧版异常，根因未完全确认。用户已授权提交、推送 `main` 与 `v2.0.5` 并由 Actions 发布，安装更新由其自行完成；发布结果以远端为准。继续开发前核对 `Resources/Info.plist`、Git 状态与实际 diff，验证范围见 TESTING。
+更新日期：2026-10-24（Asia/Shanghai）。当前源码 **2.0.5（112）** 已正式发布：按菜单内容自然测量结果同步复用原生窗口尺寸，保持现有配色、材质、布局和系统默认顶部间距。此前用户报告隐藏到一台时菜单错位、退出重开恢复；本地受控模型、原生按钮生命周期、预览及构建验签已通过，解锁后也已补 CUA 生产设置开关、关闭设置、菜单重新呈现及隐藏期间 7→1 的交互核对，浅深色均未见错位或灰条。隔离测试未自然重现旧版异常，根因未完全确认。修复提交 `8abee1e` 与 `v2.0.5` 已按授权推送，Actions、正式 Release 和实际发布附件核对通过；安装更新由用户自行完成。继续开发前核对 `Resources/Info.plist`、Git 状态与实际 diff，验证范围见 TESTING。
 
 ## 1. 工作入口与新仓库状态
 
-用户指定同名重建并从 2.0.0 开始维护。当前 `/Users/victor/Github/RadioBar` 使用全新 Git，`main` 以无父提交的 2.0.0 初始化版本为基线，`origin` 为 `git@github.com:GiaoGiaoCat/RadioBar.git`。2.0.4 已按授权提交并推送 `main`（`458e4be`）与 `v2.0.4`，Actions 与正式发布均已核对成功；2.0.3 仅为包含在该版本中的本地验证阶段，未独立发布。用户现已另行授权 2.0.5 提交、推送与标签发布，仍由其自行安装。不再执行远端删除或重建。重建过程见 [REPOSITORY_REBUILD](REPOSITORY_REBUILD.md)。
+用户指定同名重建并从 2.0.0 开始维护。当前 `/Users/victor/Github/RadioBar` 使用全新 Git，`main` 以无父提交的 2.0.0 初始化版本为基线，`origin` 为 `git@github.com:GiaoGiaoCat/RadioBar.git`。2.0.4 修复提交为 `458e4be`，包含未独立发布的 2.0.3 验证阶段；2.0.5 修复提交为 `8abee1e`，`v2.0.5` 固定指向该提交。两次提交、标签推送及正式发布均已按授权完成，用户自行安装。不再执行远端删除或重建。重建过程见 [REPOSITORY_REBUILD](REPOSITORY_REBUILD.md)。
 
 重建前源码和完整旧 Git 仅备份一份，位于被忽略的 `private/repository-rebuild-20261023-154311/RadioBar-before-reinit/`。其他五个旧工作目录（含有未提交工作的 iOS 工程）仍关联此备份；已修复指针并核对内容。不要删除／移动备份或从旧目录向同名新仓库推送旧历史。`private/` 不进入首次提交；完整 1.x 文档也在该备份中，新仓库不再保留开发流水账。
 
@@ -118,7 +118,7 @@ Actions 的 tag 工作流校验版本、构建、解压验签、生成校验文�
 - `KISS_STREAM_URL`、`CNR_STREAM_URL`：完整固定地址。
 - `SPARKLE_PRIVATE_KEY`：原更新私钥，本机登录钥匙串 account 为 `local.victor.RadioBar`；对应公钥保留在 Info.plist。旧仓库 Secret 不可读回，同名新仓库需重新配置。不要输出、提交、重新生成或擅自更换密钥。
 
-更新组件仍为 Sparkle 2.10.0；生产源为 `https://github.com/GiaoGiaoCat/RadioBar/releases/latest/download/appcast.xml` 及语言变体。签名验证涵盖 feed、说明及 ZIP。按需运行本地签名／更新专项，配置远端 Secret 不是日常测试步骤。推送成功不代表 Actions 或发布成功；交付需核对远端附件和更新源。已确认 [v2.0.4 Actions](https://github.com/GiaoGiaoCat/RadioBar/actions/runs/39986371788) 成功、[正式 Release](https://github.com/GiaoGiaoCat/RadioBar/releases/tag/v2.0.4) 为 latest 且非草稿，六份附件齐全：交付 ZIP、SHA256SUMS 与四份 appcast。实际发布 ZIP 的校验和、更新签名及解压后的严格 deep codesign 均已核对；安装更新由用户自行完成。此前 `v2.0.2` 最终结果由用户自行核对。
+更新组件仍为 Sparkle 2.10.0；生产源为 `https://github.com/GiaoGiaoCat/RadioBar/releases/latest/download/appcast.xml` 及语言变体。签名验证涵盖 feed、说明及 ZIP。按需运行本地签名／更新专项，配置远端 Secret 不是日常测试步骤。推送成功不代表 Actions 或发布成功；交付需核对远端附件和更新源。已确认 [v2.0.5 Actions](https://github.com/GiaoGiaoCat/RadioBar/actions/runs/39994736057) 成功、[正式 Release](https://github.com/GiaoGiaoCat/RadioBar/releases/tag/v2.0.5) 于 2026-10-24 01:25:53（Asia/Shanghai）发布，为 latest 且非草稿。六份附件齐全；实际 ZIP 为 3,065,980 字节，SHA-256 为 `7ecb8c6211bb7220c4ba4e2ddec634f4e818445824a798ab1e1f21c6ccbe16d5`。四份 feed／ZIP 公钥签名、latest 与标签 feed 一致、当前三语说明、最终 ZIP 严格 deep codesign、版本／资源均通过，证据 `build/published-v2.0.5/verification.json`；仍为 ad-hoc 签名、未公证。安装更新由用户自行完成；此前 `v2.0.2` 最终结果由用户自行核对。
 
 ## 9. 当前验证与限制
 

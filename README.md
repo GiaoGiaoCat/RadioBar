@@ -1,4 +1,4 @@
-<h1 align="center"><img src="Artwork/AppIcon.png" width="32" height="32" align="absmiddle" alt=""> RadioBar</h1>
+<h1 align="center"><img src="docs/images/readme-icon.png" width="32" height="32" align="absmiddle" alt=""> RadioBar</h1>
 
 <p align="center">把电台放进 Mac 菜单栏，随手打开，安心听歌。</p>
 

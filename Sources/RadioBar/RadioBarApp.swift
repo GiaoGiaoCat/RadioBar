@@ -487,6 +487,7 @@ private struct CompactMenuRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
+        .focusEffectDisabled()
         .accessibilityLabel([title, trailingText].compactMap { $0 }.joined(separator: " "))
     }
 }

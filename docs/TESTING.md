@@ -2,6 +2,16 @@
 
 本文维护可执行入口、最新结果和验收缺口；旧逐次版本流水账已合并，完整记录保存在本地被 Git 忽略的重建前源码备份中。版本说明见 [CHANGELOG](../CHANGELOG.md)，当前状态见 [HANDOFF](HANDOFF.md)。
 
+## 2.0.7（114）本地验证
+
+仅在共用菜单行按钮上关闭默认焦点视觉效果，保留焦点能力及原有键盘路由，菜单布局、悬停背景、原生材质和设置窗口生命周期不变。本地验证已完成；用户已授权提交并推送 `main` 及 `v2.0.7`，仅确认 Actions 触发，不等待后续结果或执行发布后验收，安装由用户自行完成。
+
+- 当前源码重新运行生产原生菜单专项，36 项通过、0 项失败，日志 `build/menu-focus-native.log`、报告 `build/native-menu-result.txt`；覆盖既有按键、四种列表数量、三语浅深／系统、24 pt 行高、上下 9／5 pt、顶部外部间隙 1 pt 及音量／倒计时。
+- 隔离焦点探针使用当前提取视图与生产 `NativeMenuBar`，只增加不绘制、不接收输入的观察视图。记录 `build/menu-focus-after/result.txt`：设置打开且原生菜单为 key 时，首行仍 `isFocused=true`，所有整行按钮 `isFocusEffectEnabled=false`。简中深色、英文浅色、繁中深色及设置关闭状态的缓存图均未见蓝框；当前电台移到第三项时勾选正常。缓存只检查内容，不能证明桌面材质或物理键盘端到端操作。
+- 未激活状态的菜单缓存与修复前对应图片字节相同；激活状态的菜单缓存与诊断阶段临时清除第一响应者后的无框图片也字节相同，记录 `build/menu-focus-after/pixel-comparison.json`。产品修复没有清除焦点；与后者的比较仅用于确认去框后的内容未发生额外变化。
+- 菜单参考预览 81 张与 2.0.6 对应图片全部字节相同，涵盖原有三语、播放状态和悬停效果，现有几何及受控宿主检查通过；日志 `build/menu-focus-previews.log`、比对 `build/menu-focus-preview-comparison.json`。设置预览 127 张完成，实际查看三语浅深色六张展开日志图，2.0.7（114）与当前版本标记完整；日志 `build/menu-focus-settings.log`。
+- 正式构建通过，日志 `build/menu-focus-build.log`；最终 ZIP 独立解压后严格 deep codesign、版本 2.0.7／114、arm64、Info.plist、默认电台及加密资源核对通过，除版本外的 Info.plist 与 HEAD 一致，记录 `build/menu-focus-zip-verification.json`。仍为 ad-hoc 签名、未公证。未改播放／配置／Dock 逻辑，未重复完整音频、联网及长期播放回归；未安装。
+
 ## 2.0.6（113）本地验证
 
 用户确认原生菜单预览后授权正式实现，要求保留文字行高及内部间距。生产改用 `NativeMenuBar` / NSMenu 承载原 SwiftUI 内容；本地验证已完成。用户已授权提交并推送 `main` 及 `v2.0.6`，仅确认 Actions 触发，不等待后续结果或执行发布后验收，安装由用户自行完成。

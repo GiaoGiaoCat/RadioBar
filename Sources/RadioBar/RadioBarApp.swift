@@ -44,31 +44,33 @@ struct RadioBarApp: App {
         let player = RadioPlayer()
         let preferences = AppSettings()
         preferences.enableStationSync()
-        _radio = MenuState(initialValue: player)
-        _settings = StateObject(wrappedValue: preferences)
-        _signal = MenuState(initialValue: MenuBarSignal(radio: player, settings: preferences))
+        radio = player
+        settings = preferences
         appDelegate.settings = preferences
         appDelegate.timer = player.sleepTimer
+        let window = appDelegate.settingsWindow
+        let showSettings: (SettingsPage?) -> Void = { page in
+            DispatchQueue.main.async {
+                window.show(settings: preferences, timer: player.sleepTimer, page: page)
+            }
+        }
+        let controller = NativeMenuBar(radio: player, settings: preferences, showSettings: showSettings) { dismiss in
+            AnyView(RadioMenuView(radio: player, settings: preferences, usesNativeMenu: true,
+                                  closeMenu: dismiss, showSettings: showSettings))
+        }
+        menuBar = controller
+        appDelegate.didLaunch = { controller.install() }
     }
 
     @NSApplicationDelegateAdaptor(RadioBarApplicationDelegate.self) private var appDelegate
 
-    // Playback ticks and icon animation must not invalidate MenuBarExtra's scene.
-    // Settings must reach the scene so a changed station list updates its size.
-    @MenuState private var radio: RadioPlayer
-    @MenuState private var signal: MenuBarSignal
-    @StateObject private var settings: AppSettings
+    private let radio: RadioPlayer
+    private let settings: AppSettings
+    private var menuBar: NativeMenuBar?
     var body: some Scene {
-        MenuBarExtra {
-            RadioMenuView(radio: radio, settings: settings) { page in
-                appDelegate.settingsWindow.show(settings: settings, timer: radio.sleepTimer, page: page)
-            }
-            // The native extra can retain the previous presentation's height
-            // while hidden. Give a changed list a fresh content identity.
-            .id(settings.visibleStations.map(\.id))
-        } label: {
-            RadioMenuBarLabel(signal: signal, radio: radio, settings: settings)
-        }.menuBarExtraStyle(.window)
+        // SwiftUI supplies the app's commands; the existing controller continues
+        // to own the settings window and its Dock/reopen lifecycle.
+        Settings { EmptyView() }
         .commands {
             RadioSettingsCommands(settings: settings) {
                 appDelegate.settingsWindow.show(settings: settings, timer: radio.sleepTimer)
@@ -96,6 +98,8 @@ private struct RadioMenuView: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var radio: RadioPlayer
     @ObservedObject var settings: AppSettings
+    var usesNativeMenu = false
+    var closeMenu: () -> Void = {}
     var showSettings: (SettingsPage?) -> Void = { _ in }
     private var menuDivider: some View {
         Divider().padding(.horizontal, 11).padding(.vertical, 4)
@@ -173,36 +177,42 @@ private struct RadioMenuView: View {
             }.padding(.horizontal, 9).frame(height: 27)
 
             SleepTimerMenuStatus(timer: radio.sleepTimer, language: settings.language) {
+                closeMenu()
                 showSettings(.sleepTimer)
             }
 
-            // Keep transient recovery details in Diagnostics. Adding/removing
-            // a retry row resizes the live MenuBarExtra and can leave its native
-            // backdrop out of sync with the content.
+            // Keep transient recovery details in Diagnostics so playback
+            // states retain the same compact menu height.
             menuDivider
             CompactMenuRow(title: settings.text("设置…", "Settings…"), symbol: "gearshape", shortcut: "⌘,") {
+                closeMenu()
                 showSettings(nil)
             }.keyboardShortcut(",", modifiers: .command)
             CompactMenuRow(title: settings.text("退出 RadioBar", "Quit RadioBar"), symbol: "power", shortcut: "⌘Q") {
+                closeMenu()
                 radio.pause()
                 NSApplication.shared.terminate(nil)
             }.keyboardShortcut("q")
         }
         .font(.system(size: 13))
-        .padding(5).frame(width: 256)
+        .padding(.horizontal, 5).padding(.vertical, usesNativeMenu ? 0 : 5).frame(width: 256)
         .fixedSize(horizontal: false, vertical: true)
         .background {
-            MenuBackground()
-                .accessibilityHidden(true)
-                .allowsHitTesting(false)
+            if !usesNativeMenu {
+                MenuBackground()
+                    .accessibilityHidden(true)
+                    .allowsHitTesting(false)
+            }
         }
         .background {
-            GeometryReader { geometry in
-                MenuContentSizeBridge(size: geometry.size)
-                    .frame(width: 0, height: 0)
+            if !usesNativeMenu {
+                GeometryReader { geometry in
+                    MenuContentSizeBridge(size: geometry.size)
+                        .frame(width: 0, height: 0)
+                }
+                .accessibilityHidden(true)
+                .allowsHitTesting(false)
             }
-            .accessibilityHidden(true)
-            .allowsHitTesting(false)
         }
         .radioAppearance(settings.appearance)
         .background(alignment: .topLeading) {

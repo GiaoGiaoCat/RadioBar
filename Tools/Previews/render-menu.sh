@@ -12,7 +12,7 @@ done
 xcrun swiftc -D RADIOBAR_TESTING -swift-version 5 -target arm64-apple-macosx14.0 \
   -module-cache-path "$PWD/build/ModuleCache" -parse-as-library \
   "${SOURCES[@]}" build/PreviewRadioPlayer.swift build/CapturedMenuPreview.swift -o build/MenuSnapshots
-if [[ "${1:-}" == "--interactive" ]]; then
+if [[ "${1:-}" == "--interactive" || "${1:-}" == "--surface" ]]; then
   APP="$PWD/build/RadioBarMenuPreview.app"
   mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
   cp -X build/MenuSnapshots "$APP/Contents/MacOS/MenuSnapshots"
@@ -23,6 +23,9 @@ if [[ "${1:-}" == "--interactive" ]]; then
   /usr/libexec/PlistBuddy -c 'Set :CFBundleName RadioBar Menu Preview' "$APP/Contents/Info.plist"
   /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName RadioBar Menu Preview' "$APP/Contents/Info.plist"
   /usr/libexec/PlistBuddy -c 'Set :LSUIElement false' "$APP/Contents/Info.plist"
+  if [[ "${1:-}" == "--surface" ]]; then
+    /usr/libexec/PlistBuddy -c 'Add :RadioBarSurfacePreview bool true' "$APP/Contents/Info.plist"
+  fi
   codesign --force --sign - "$APP"
   echo "Prepared: $APP"
 else

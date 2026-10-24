@@ -2,6 +2,18 @@
 
 本文维护可执行入口、最新结果和验收缺口；旧逐次版本流水账已合并，完整记录保存在本地被 Git 忽略的重建前源码备份中。版本说明见 [CHANGELOG](../CHANGELOG.md)，当前状态见 [HANDOFF](HANDOFF.md)。
 
+## 2.0.6（113）本地验证
+
+用户确认原生菜单预览后授权正式实现，要求保留文字行高及内部间距。生产改用 `NativeMenuBar` / NSMenu 承载原 SwiftUI 内容；本地验证已完成。用户已授权提交并推送 `main` 及 `v2.0.6`，仅确认 Actions 触发，不等待后续结果或执行发布后验收，安装由用户自行完成。
+
+- 生产原生菜单专项 36 项通过，日志 `build/native-menu-test.log`、报告 `build/native-menu-result.txt`。实际状态栏按钮呈现单台／五台／七台／十二台，三语浅深／系统共七组外观；检查 24 pt 行高、上下内容边界 9／5 pt、总高度 232／328／376／496 pt、顶部外部间隙 1 pt。记录的是当前系统实测几何，不是生产硬编码尺寸。
+- 原生 AppKit 应用内按键事件验证空格、⌘R 和 ⌘,；播放／重连保持菜单打开，设置先关闭菜单且打开生产设置窗口。本机激活的参考窗口与原生菜单中，合成鼠标事件均能操作原有静音按钮；滑块更新音量且菜单保持打开。十八组真实状态栏模板图在菜单持续打开期间覆盖两种名称模式和分钟／一位小时／两位小时格式，同格式宽度稳定、实际内容宽度匹配。⌘Q 命令映射检查，不在该进程内执行退出以免截断报告。
+- 当前内容参考预览 81 张、108 组自然高度／边界及旧弹窗受控模型 19 项通过；`build/native-menu-previews/` 全部 81 张与已确认前的对应图片字节相同，记录 `build/native-menu-pixel-comparison.json`。实际查看简／繁／英文浅深色六张单台图；参考图只证明内容排版，不证明原生菜单桌面材质。
+- 正式构建通过，日志 `build/native-menu-build.log`；最终 ZIP 独立解压后严格 deep codesign、2.0.6／113、arm64、完整 Info.plist、默认电台及加密资源核对通过，除版本外的 Info.plist 与原提交一致，记录 `build/native-menu-zip-verification.json`。仍为 ad-hoc 签名，未公证。
+- 设置预览 127 张通过，日志 `build/native-menu-settings.log`、图片 `build/native-menu-settings/`；实际查看三语浅深色六张展开日志图，2.0.6（113）及当前版本标记完整。Dock 六组、原生拖放七组通过，日志 `build/native-menu-dock.log`、`build/native-menu-drops.log`。
+- CUA 使用当前生产控制器的隔离 App，通过生产设置开关 7→1→7、关闭设置、控制窗口调用原生状态栏按钮重开；同期几何 `build/native-menu-cua-one.txt` 与 `build/native-menu-cua-seven.txt` 显示 256×232／376、上下 9／5 pt、外部间隙 1 pt，菜单栏按钮宽度仍为 34 pt。展开菜单后发送 ⌘Q，工具确认隔离 App 已退出，未安装或替换正式 App。
+- 单窗口截图不能同时包含菜单栏、菜单及背景，内容缓存也不包含系统材质合成；桌面通透效果沿用用户确认的预览。CUA 控制窗口的按钮不是直接点击系统状态栏图标；合成事件、参考图与界面操作不证明真实 VoiceOver、直播音频或长期播放。未改播放算法／配置持久化，未重复完整音频或联网回归。
+
 ## 2.0.5（112）本地验证
 
 用户在 2.0.4 再次报告多台隐藏至一台后窗口错位、退出重开恢复。本轮用菜单自然测量结果同步原生窗口尺寸，保留配色、材质与布局。未在隔离原生菜单中自然复现用户现象，以下区分受控模型和原生呈现流程。
@@ -131,16 +143,14 @@ Mac 切台改为 0.8 秒淡出旧台、0.5 秒双路静音、1.2 秒淡入新台
 
 ### 界面预览
 
-三项脚本均重新编译对应预览工具，需可用的 macOS 图形服务。可选第一个参数为输出目录，例如 `./Tools/Previews/render-menu.sh build/menu-review`；相对路径按仓库根目录解析。
+预览脚本均重新编译对应工具，需可用的 macOS 图形服务。可选第一个参数为输出目录，例如 `./Tools/Previews/render-menu.sh build/menu-review`；相对路径按仓库根目录解析。
 
 | 可执行入口 | 输入与默认输出 |
 |---|---|
-| `./Tools/Previews/render-menu.sh` | 从生产菜单提取测试副本，需 Python 3；含播放状态切换、12／7／5／1 个电台的自然尺寸及上下边界断言，生成 81 张图片；另用关闭宿主自动尺寸传播的普通 NSWindow 逐台验证 7→1→7→1 的 19 项尺寸恢复，报告 `cached-host-size-result.txt`，失败退出 1。图片及报告默认在 `build/menu-previews/`，生成 Swift 在 `build/`。编译后可用 `RADIOBAR_MENU_CACHED_HOST_ONLY=1 ./build/MenuSnapshots 输出目录` 单跑受控模型；该模型不验证原生菜单定位或自然复现 |
-| `./Tools/Previews/render-menu.sh --interactive` | 编译并组装 `build/RadioBarMenuPreview.app`；打开后显示生产菜单栏标签，复用生产菜单、7 个电台和隔离偏好；测试 App 的 Preview Appearance 菜单可切换 Light / Dark / System（⌘⌥1 / ⌘⌥2 / ⌘⌥0），仅改变隔离偏好。播放入口约 2 秒后模拟 Playing，无直播音频。将现有有界诊断报告写入 `build/menu-live-diagnostics.txt`。开发自动运行可从根目录执行 `RADIOBAR_MENU_AUTORUN=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots`，约 19 秒内由原生按钮方法初次展开，等待启动事件跟踪稳定后，通过原生窗口方法隐藏和显示，再模拟重试/取址/失败/播放、切台及深/浅/系统外观，并在隐藏期间改变可见电台数量再重新显示；17 项窗口/呈现图层高度、边界、外观、背景覆盖与事件穿透断言写入 `build/menu-retry-result.txt`，失败时保留报告并返回退出码 1（不触发崩溃），成功退出 0。可在同一自动运行命令前额外设置 `RADIOBAR_MENU_TEST_EARLY_DISMISS=1`，主动提前隐藏隔离菜单来验证失败退出路径；该模式预期为 INCOMPLETE / 退出 1，不计为布局通过。十一张内容缓存图为 `build/menu-retry-step-{13,27,31,37,39,45,49,53,57,61,65}.png`；缓存图不验证系统玻璃合成，此方法不是鼠标端到端验收，需允许图形会话 |
-| 菜单外观原生专项 | 先运行 `./Tools/Previews/render-menu.sh --interactive`，再从根目录执行 `RADIOBAR_MENU_APPEARANCE_AUTORUN=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots`。约 16 秒内检查 15 项菜单隐藏／重开、浅深／系统切换、系统跟随、生产设置窗口切外观关闭后复用及宿主 override 异常注入恢复；同时核对窗口、材质、SwiftUI colorScheme、自然高度、边界及输入穿透。偏好及 NSApp 外观均在隔离进程内，系统模式要求 window.appearance 为 nil；报告 `build/menu-appearance-result.txt`、15 张缓存图 `build/menu-appearance-*.png`，失败退出 1。宿主覆盖注入为模拟防回归，不代表复现用户肉眼偏暗；缓存图也不证明桌面材质合成或鼠标交互 |
-| 菜单短列表原生专项 | 先组装上述 interactive App，再执行 `RADIOBAR_MENU_SHORT_LIST_AUTORUN=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots`。约 24 秒经真实菜单栏按钮呈现／关闭 extra，生产设置窗口开关和逐台显示 setter 驱动 7→1→7→1；7 项检查包括原生窗口高度、上下边界及菜单顶部相对按钮的间距，报告 `build/menu-short-list-result.txt`，完整几何在同一报告及 `build/menu-live-diagnostics.txt`。失败／缺少按钮或探针均退出 1；不直接隐藏／显示原生窗口，不代表物理鼠标点击或桌面合成验收 |
-| 菜单短列表交互预览 | 同一测试 App 可用 `RADIOBAR_MENU_SHORT_LIST_INTERACTIVE=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots` 打开隔离的生产电台设置与测试控制窗口。`Toggle menu` 调用真实状态栏按钮，`Open settings` 打开生产设置；可手动逐台隐藏至一台、关闭设置并重开菜单。几何变化写入 `build/menu-live-diagnostics.txt`，不自动退出、不操作正式 App 配置；需要解锁的图形会话 |
-| 菜单栏倒计时原生专项 | 先运行 `./Tools/Previews/render-menu.sh --interactive`，再从根目录执行 `RADIOBAR_MENU_LABEL_AUTORUN=1 ./build/RadioBarMenuPreview.app/Contents/MacOS/MenuSnapshots`。用隔离偏好、生产标签与可控单调时钟，约 8 秒内比较两种名称模式的 18 组真实 NSStatusBarButton 状态，覆盖分钟、一位小时、两位小时格式；同一格式内宽度固定，画布超出实际内容不足 1 pt，并确认无比例文字标题、图片保持 template。报告 `build/menu-label-result.txt`，原生按钮缓存图 `build/menu-label-step-偶数.png`（2–36）；失败退出 1，不操作正式 App，不验证真实鼠标或直播声音 |
+| `./Tools/Previews/render-menu.sh` | 从生产菜单提取保留 2.0.5 外层留白的内容参考副本，需 Python 3；含播放状态切换、12／7／5／1 个电台的自然尺寸及上下边界断言，生成 81 张图片；另用关闭宿主自动尺寸传播的普通 NSWindow 逐台验证 7→1→7→1 的 19 项尺寸恢复，报告 `cached-host-size-result.txt`，失败退出 1。图片及报告默认在 `build/menu-previews/`，生成 Swift 在 `build/`。编译后可用 `RADIOBAR_MENU_CACHED_HOST_ONLY=1 ./build/MenuSnapshots 输出目录` 单跑受控模型；该模型只验证旧弹窗参考桥接，不验证当前原生菜单控制器 |
+| `./Tools/Previews/render-menu.sh --interactive` | 编译并组装 `build/RadioBarMenuPreview.app`，使用生产 `NativeMenuBar` 与菜单内容、7 个电台和隔离偏好；自动显示生产电台设置及 `Toggle menu` / `Open settings` 控制窗口。播放约 2 秒后模拟 Playing，无直播音频。Preview Appearance 菜单提供浅／深／系统，生产设置可切换三语、显隐、Dock 等；不操作正式配置。几何写入 `build/menu-live-diagnostics.txt`。需要解锁的图形会话，真实桌面材质与交互应在此模式查看 |
+| `./Tools/Tests/test-native-menu.sh` | 独立编译生产原生菜单控制器及提取的内容，使用实际 NSStatusBarButton 呈现、AppKit 应用内事件与隔离偏好；核对单台／五台／七台／十二台、三语浅深／系统、24 pt 行高及上下边界、原生顶部间距、现有按键、音量、设置与倒计时标签。报告 `build/native-menu-result.txt`，失败退出 1；无直播音频，不等于物理鼠标或桌面材质合成验收。`RADIOBAR_NATIVE_MENU_VOLUME_ONLY=1` 只跑开头的音量／空格路径，供开发定位 |
+| `./Tools/Previews/render-menu.sh --surface` | 保留 2.0.5 SwiftUI 弹窗与已确认原生候选、标准 NSMenu 的比较工具，三语、浅深／系统、单台／七台可切换。彩色背景仅为观察通透度，几何写入 `build/menu-surface-geometry.txt`。该参考模式不使用完整生产菜单控制器，不能替代上一项专项；再次编译 `--interactive` 回到生产隔离模式 |
 | `./Tools/Previews/render-station-sync.sh [输出目录]` | 默认 `build/station-sync-previews/`；编译正式单向发布卡片及确认 sheet，生成 48 张简繁中文／英文、浅深色的未设置／首次确认／替换确认／已发布／待发布／云端变化／损坏／停止状态图，不启动正式 App、无 iCloud／音频操作 |
 | `./Tools/Previews/render-settings.sh` | 编译生产设置视图，复制 Info.plist/图标/许可证到测试资源 bundle；覆盖关于页、许可 sheet 的简繁中文/英文浅深色、正文末尾与资源缺失，及添加/编辑窗口及冲突提示、默认/自定义/仅内置台的列表与默认下拉、简繁中文/英文、浅深色和外观切换，图片输出 `build/settings-previews/` |
 | `./Tools/Previews/render-app-icon.sh` | 先运行 `./build.sh`；从最终 ZIP 解压并严格验签，经 macOS 图标服务输出 64/128/256 像素图片到 `build/app-icon-previews/` |
@@ -164,7 +174,7 @@ Mac 切台改为 0.8 秒淡出旧台、0.5 秒双路静音、1.2 秒淡入新台
 | 工具类型 | 对应源码（相对仓库根目录） |
 |---|---|
 | 离线与原生专项 | `Tests/*.swift`；本地 AVPlayer 专项另用 `Tools/NativeAudioTransitionProbe.swift` |
-| 菜单预览 | `Tools/PrepareMenuPreview.py` 提取生产视图，组合 `Tools/RenderMenu.swift`；仅生成副本供预览 |
+| 菜单预览与原生专项 | `Tools/PrepareMenuPreview.py` 提取生产视图，组合 `Tools/RenderMenu.swift` 或 `Tests/NativeMenuTests.swift`；生产控制器直接编译 `NativeMenuBar.swift` |
 | 设置/图标预览 | `Tools/RenderSettings.swift`、`Tools/RenderAppIcon.swift` |
 | 图标生成 | `Tools/MakeAppIcon.swift`；`iconutil` 不可用时由 `Tools/pack-icns.py` 回退打包 |
 | 直播探测 | `Tools/PlaybackProbe.swift`，通过 `Tools/Tests/test-playback.sh` 编译运行；`test.sh` 的联网参数也复用此入口 |

@@ -71,7 +71,7 @@ private final class MenuLiveFixture {
     private let appearanceSettingsController = SettingsWindowController()
     private let interactiveSettingsController = SettingsWindowController()
     private var interactiveSettingsConfigured = false
-    private let shortListInteractive = ProcessInfo.processInfo.environment["RADIOBAR_MENU_SHORT_LIST_INTERACTIVE"] == "1"
+    private let shortListInteractive = ProcessInfo.processInfo.environment["RADIOBAR_MENU_SHORT_LIST_INTERACTIVE"] == "1" || (Bundle.main.bundleIdentifier == "local.victor.RadioBar.MenuPreview" && (Bundle.main.object(forInfoDictionaryKey: "RadioBarSurfacePreview") as? Bool) != true)
     private let shortListAutomatic = ProcessInfo.processInfo.environment["RADIOBAR_MENU_SHORT_LIST_AUTORUN"] == "1"
     private var shortListInitialStations: [Station] = []
     private var shortListActions: [String] = []
@@ -79,6 +79,8 @@ private final class MenuLiveFixture {
     private var shortListInitialAnchorGap: CGFloat?
     private var interactiveControlsWindow: NSWindow?
     private var interactiveControlsActions: InteractiveControlsActions?
+    private var surfacePreview: MenuSurfacePreview?
+    private var nativeMenu: NativeMenuBar?
     private final class InteractiveControlsActions: NSObject {
         var toggleMenu: () -> Void = {}
         var openSettings: () -> Void = {}
@@ -113,6 +115,27 @@ private final class MenuLiveFixture {
         }
         settings.animateMenuBarIcon = true
         signal = MenuBarSignal(radio: radio, settings: settings)
+        if Bundle.main.object(forInfoDictionaryKey: "RadioBarSurfacePreview") as? Bool == true {
+            settings.language = .chinese
+            settings.animateMenuBarIcon = false
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.surfacePreview = MenuSurfacePreview(radio: self.radio, settings: self.settings)
+                self.surfacePreview?.show()
+            }
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.nativeMenu = NativeMenuBar(radio: self.radio, settings: self.settings,
+                                               showSettings: { [weak self] in self?.showSettings($0) }) { [weak self] dismiss in
+                    guard let self else { return AnyView(EmptyView()) }
+                    return AnyView(CapturedMenuView(radio: self.radio, settings: self.settings,
+                                                   usesNativeMenu: true, closeMenu: dismiss,
+                                                   showSettings: { [weak self] in self?.showSettings($0) }))
+                }
+                self.nativeMenu?.install()
+            }
+        }
         if (shortListInteractive || shortListAutomatic) && !labelAutomatic && !appearanceAutomatic
             && ProcessInfo.processInfo.environment["RADIOBAR_MENU_AUTORUN"] != "1" {
             interactiveSettingsController.configure(settings: settings)
@@ -136,7 +159,7 @@ private final class MenuLiveFixture {
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.recordGeometry() }
         }
-        if shortListAutomatic, let timer {
+        if shortListAutomatic || shortListInteractive, let timer {
             // A native status-button action can enter an event-tracking run
             // loop. Keep this independent lifecycle driver eligible there.
             RunLoop.main.add(timer, forMode: .common)
@@ -187,12 +210,14 @@ private final class MenuLiveFixture {
         interactiveControlsWindow?.orderFront(nil)
     }
     private func menuWindow() -> NSWindow? {
+        if let window = nativeMenu?.hosting?.window { return window }
         func containsHeader(_ view: NSView) -> Bool {
             view.identifier?.rawValue == "menuHeaderProbe" || view.subviews.contains(where: containsHeader)
         }
         return NSApp.windows.first { $0.contentView.map(containsHeader) ?? false }
     }
     private func statusButton() -> NSStatusBarButton? {
+        if let button = nativeMenu?.statusItem?.button { return button }
         func find(_ view: NSView) -> NSStatusBarButton? {
             if let button = view as? NSStatusBarButton { return button }
             return view.subviews.lazy.compactMap { find($0) }.first
@@ -700,23 +725,42 @@ private struct MenuLivePreview: App {
         _settings = StateObject(wrappedValue: fixture.settings)
     }
     var body: some Scene {
+        Settings { EmptyView() }
+            .commands { MenuPreviewCommands(fixture: fixture) }
+    }
+}
+
+private struct MenuSurfaceLivePreview: App {
+    @MenuState private var fixture: MenuLiveFixture
+    @StateObject private var settings: AppSettings
+    init() {
+        let fixture = MenuLiveFixture()
+        _fixture = MenuState(initialValue: fixture)
+        _settings = StateObject(wrappedValue: fixture.settings)
+    }
+    var body: some Scene {
         MenuBarExtra {
-            CapturedMenuView(radio: fixture.radio, settings: settings) { page in
+            CapturedMenuView(radio: fixture.radio, settings: settings, showSettings: { page in
                 fixture.showSettings(page)
-            }
-                .id(settings.visibleStations.map(\.id))
+            })
+            .id(settings.visibleStations.map(\.id))
         } label: {
-            CapturedMenuBarLabel(signal: fixture.signal, radio: fixture.radio, settings: fixture.settings)
+            CapturedMenuBarLabel(signal: fixture.signal, radio: fixture.radio, settings: settings)
         }.menuBarExtraStyle(.window)
-        .commands {
-            CommandMenu("Preview Appearance") {
-                Button("Light") { fixture.settings.appearance = .light }
-                    .keyboardShortcut("1", modifiers: [.command, .option])
-                Button("Dark") { fixture.settings.appearance = .dark }
-                    .keyboardShortcut("2", modifiers: [.command, .option])
-                Button("System") { fixture.settings.appearance = .system }
-                    .keyboardShortcut("0", modifiers: [.command, .option])
-            }
+        .commands { MenuPreviewCommands(fixture: fixture) }
+    }
+}
+
+private struct MenuPreviewCommands: Commands {
+    let fixture: MenuLiveFixture
+    var body: some Commands {
+        CommandGroup(replacing: .appSettings) {
+            Button("Settings…") { fixture.showSettings(nil) }.keyboardShortcut(",")
+        }
+        CommandMenu("Preview Appearance") {
+            Button("Light") { fixture.settings.appearance = .light }.keyboardShortcut("1", modifiers: [.command, .option])
+            Button("Dark") { fixture.settings.appearance = .dark }.keyboardShortcut("2", modifiers: [.command, .option])
+            Button("System") { fixture.settings.appearance = .system }.keyboardShortcut("0", modifiers: [.command, .option])
         }
     }
 }
@@ -726,7 +770,11 @@ struct MenuSnapshots {
     @MainActor static func main() throws {
         if Bundle.main.bundleIdentifier == "local.victor.RadioBar.MenuPreview" {
             NSApplication.shared.setActivationPolicy(.regular)
-            MenuLivePreview.main()
+            if Bundle.main.object(forInfoDictionaryKey: "RadioBarSurfacePreview") as? Bool == true {
+                MenuSurfaceLivePreview.main()
+            } else {
+                MenuLivePreview.main()
+            }
             return
         }
         NSApplication.shared.setActivationPolicy(.prohibited)

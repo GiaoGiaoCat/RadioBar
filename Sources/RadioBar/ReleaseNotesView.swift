@@ -11,6 +11,9 @@ struct RadioReleaseNote: Identifiable {
 /// Detailed 1.x records remain only in the local pre-reinitialization backup.
 enum RadioReleaseNotes {
     static let entries: [RadioReleaseNote] = [
+        RadioReleaseNote(version: "2.0.6", title: RadioText("2.0.6", "2.0.6"), changes: [
+            RadioText("主菜单采用系统原生菜单的顶部间距、背景材质与边框，保持原有文字行高和内部间距。", "Use native system menu placement, background material and borders, preserving text row heights and internal spacing."),
+        ]),
         RadioReleaseNote(version: "2.0.5", title: RadioText("2.0.5", "2.0.5"), changes: [
             RadioText("补全隐藏电台后菜单窗口的尺寸同步，按实际内容高度调整，避免短列表居中在旧窗口中；保持现有配色与布局。", "Synchronize the menu window with its actual content size after hiding stations, preventing shorter lists from remaining centered in an oversized window, while preserving existing colors and layout."),
         ]),

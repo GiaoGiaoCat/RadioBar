@@ -1164,9 +1164,11 @@ final class RadioBarApplicationDelegate: NSObject, NSApplicationDelegate {
     let settingsWindow = SettingsWindowController()
     var settings: AppSettings?
     var timer: SleepTimer?
+    var didLaunch: (() -> Void)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let settings { settingsWindow.configure(settings: settings) }
+        didLaunch?()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }

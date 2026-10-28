@@ -2,6 +2,12 @@
 
 本文维护可执行入口、最新结果和验收缺口；旧逐次版本流水账已合并，完整记录保存在本地被 Git 忽略的重建前源码备份中。版本说明见 [CHANGELOG](../CHANGELOG.md)，当前状态见 [HANDOFF](HANDOFF.md)。
 
+2026-10-28 本地公证流程：Developer ID 待提交 ZIP 从当前源码构建并解压严格验签，朋友报告公证通过，本机附加凭据后最终 ZIP 通过签名、公证和 Gatekeeper 检查；尚未取得朋友的公证日志。使用最终 ZIP 重新生成四份 Sparkle 签名更新源，`test-updates.sh` 的隔离发现更新、无更新及篡改拒绝通过。对比已存 2.0.5（112）正式包，bundle ID、更新公钥及两项签名设置与 2.0.7（114）一致。
+
+真实更新专项：从已存 2.0.5 正式 ZIP 解压隔离副本，修改 feed 为本地回环地址、允许本地网络并对旧版副本重新 ad-hoc 签名；使用独立 CFFIXED_USER_HOME，向本地签名 feed 提供公证 ZIP。通过旧版实际 Sparkle 界面发现、下载更新，Ready to Install 后退出旧版，Sparkle 完成替换；磁盘上成为 2.0.7（114），strict codesign、公证凭据及 Gatekeeper 均通过。随后在隔离目录手动启动并看到 2.0.7 设置窗口。未测试自动重启或生产偏好迁移，旧版副本非完全未修改正式包；已安装 2.0.7 不会将同构建号识别为更新。
+
+新手动发布工作流的本地公证 ZIP 验证通过，错误摘要和旧 ad-hoc ZIP 均被拒绝；工作流未推送或在 GitHub 实际运行，远端草稿上传、Actions、发布及公开更新源仍待按授权验收。
+
 ## 2.0.7（114）本地验证
 
 仅在共用菜单行按钮上关闭默认焦点视觉效果，保留焦点能力及原有键盘路由，菜单布局、悬停背景、原生材质和设置窗口生命周期不变。本地验证已完成；用户已授权提交并推送 `main` 及 `v2.0.7`，仅确认 Actions 触发，不等待后续结果或执行发布后验收，安装由用户自行完成。
@@ -175,9 +181,12 @@ Mac 切台改为 0.8 秒淡出旧台、0.5 秒双路静音、1.2 秒淡入新台
 | `./Tools/fetch-sparkle.sh` | 由构建/签名工具按需调用；校验固定 SHA-256 的 SDK 压缩包，再重新解压到 `build/Sparkle-版本/`，不使用未经验证的旧解压目录 |
 | `Tools/sparkle-config.sh` | 供脚本从根目录 `source` 的版本、摘要及 SDK 路径配置，不是独立测试入口；改 Sparkle 版本时还要同步 Package.swift、Xcode 引用与许可证 |
 | `./Tools/sign-release.sh` | 先构建 ZIP；使用专用钥匙串密钥或环境变量 `SPARKLE_PRIVATE_KEY`，重建 `build/updates/`，从内置当前版本日志生成默认/简体/繁体/英文四份带说明的 feed，逐份签名并独立验证 feed/ZIP，编译 `build/PrepareUpdateNotes` 与 `build/VerifyUpdate`；本命令不上传或发布 |
+| `./build.sh --developer-id` | 需设置 `RADIOBAR_SIGNING_IDENTITY`、本机证书与私钥及安全时间戳网络；逐项签名 Sparkle 与 App，生成 `build/RadioBar-notary-submission.zip`，不提交公证或覆盖最终 ZIP |
+| `./Tools/finalize-notarized.sh <已提交的ZIP>` | 对原提交包附加并验证 Apple 凭据，再解压检查签名、公证和 Gatekeeper；全部成功才替换最终 ZIP。需要已接受的公证和联网，不上传或发布 |
+| `./Tools/verify-notarized-release.sh <ZIP> <SHA-256>` | 验证摘要、完整版本元数据、arm64、预期 Developer ID 团队、时间戳、运行时、公证及 Gatekeeper；不安装或发布 |
 | `./Tools/configure-update-secret.sh` | 可选的一次性远端配置工具，需已认证 GitHub CLI 和本机专用更新密钥，会写入 Repository Secret。用户已通过网页完成配置，日常构建/测试无需运行或安装 gh，不要重复生成密钥 |
 
-正式发布由 `.github/workflows/release.yml` 调用现有构建/签名工具，另调用 `Tools/check-release-order.py` 校验 Release 顺序。tag、Secret、签名和发布流程见 [HANDOFF 第 8 节](HANDOFF.md#8-构建验证与交付)。交付 ZIP 解压后再运行 `codesign --verify --deep --strict /实际解压位置/RadioBar.app`，App 的 ad-hoc 签名与 Sparkle 的 EdDSA 更新签名分别验证。
+手动发布由 `.github/workflows/release.yml` 验证草稿中的公证 ZIP 并调用签名工具；`Tools/check-release-order.py` 校验 Release 顺序。操作见 [BUILD](BUILD.md#使用本地公证包发布-github-release)。App 的 Developer ID 签名、公证和 Sparkle 的 EdDSA 更新签名分别验证。
 
 ### 修改工具时到哪里找实现
 

@@ -110,15 +110,14 @@ loveRadio, classic947, radioParadise, grooveSalad, swissJazz
 
 ## 8. 构建、验证与交付
 
-从仓库根目录按 [源码编译指南](BUILD.md) 准备私有输入后运行 `./build.sh`，产物为 `build/RadioBar-macOS-arm64.zip`。App 在普通临时目录装配并 ad-hoc 签名；交付前必须从最终 ZIP 解压并执行 `codesign --verify --deep --strict`。这不是 Developer ID 公证发布。
+从仓库根目录按 [源码编译指南](BUILD.md) 准备私有输入后运行 `./build.sh`，产物为 `build/RadioBar-macOS-arm64.zip`，默认仍为 ad-hoc 签名。可选本地 Developer ID 签名并由朋友协助公证，再从最终 ZIP 解压校验签名、公证凭据及 Gatekeeper；具体操作和发布入口见 BUILD。
 
 按 [TESTING](TESTING.md#按改动选择验证) 选择专项；完整离线入口是 `./test.sh`，不是 `swift test`。新增／移动生产源码同步 Xcode Sources 和显式测试清单。图形会话、宏插件、文件协调或回环服务受限时，报告实际通过的范围与环境边界。
 
 用户指定初始化版本为 2.0.0，构建号延续为 107，不重置；后续默认递增 2.0.X 和构建号。当前源码为 2.0.7（114），已同步 Info.plist、双语日志与 CHANGELOG；用户已授权提交并先推送 `main`，再推送 `v2.0.7`。本轮仅确认 Actions 已触发，不等待后续构建／发布结果，不执行发布后验收，安装由用户自行完成。此前 2.0.6（113）的 `main` 提交 `37e2f30` 与 `v2.0.6` 已按授权依次推送，只确认 Actions 触发，后续结果由用户自行核对并安装。此前 2.0.5（112）已按授权提交、推送 `main` 及 `v2.0.5` 并正式发布，用户自行安装。2.0.4（111）已通过 `main` 提交 `458e4be` 与标签 `v2.0.4` 正式发布，包含未独立发布的 2.0.3 修复。此前 2.0.2 最终发布结果按用户要求由其自行核对。不要恢复旧标签或镜像推送旧 Git。
 
-Actions 的 tag 工作流校验版本、构建、解压验签、生成校验文件与四份签名 appcast，上传草稿后再正式发布。使用自动 `GITHUB_TOKEN` 和以下三个 Repository Secrets，无需额外 PAT：
+新 Actions 流程在推送 `main` 时执行只读验证，发布则须手动运行：读取已有草稿中的本地公证 ZIP，核对提交、摘要、签名及公证，再生成并校验四份 appcast，最终发布草稿；详细前置条件与失败重试见 BUILD。使用自动 `GITHUB_TOKEN` 和原有 Sparkle Repository Secret，无需 Developer ID 私钥或额外 PAT：
 
-- `KISS_STREAM_URL`、`CNR_STREAM_URL`：完整固定地址。
 - `SPARKLE_PRIVATE_KEY`：原更新私钥，本机登录钥匙串 account 为 `local.victor.RadioBar`；对应公钥保留在 Info.plist。旧仓库 Secret 不可读回，同名新仓库需重新配置。不要输出、提交、重新生成或擅自更换密钥。
 
 更新组件仍为 Sparkle 2.10.0；生产源为 `https://github.com/GiaoGiaoCat/RadioBar/releases/latest/download/appcast.xml` 及语言变体。签名验证涵盖 feed、说明及 ZIP。按需运行本地签名／更新专项，配置远端 Secret 不是日常测试步骤。推送成功不代表 Actions 或发布成功；交付需核对远端附件和更新源。已确认 [v2.0.5 Actions](https://github.com/GiaoGiaoCat/RadioBar/actions/runs/39994736057) 成功、[正式 Release](https://github.com/GiaoGiaoCat/RadioBar/releases/tag/v2.0.5) 于 2026-10-24 01:25:53（Asia/Shanghai）发布，为 latest 且非草稿。六份附件齐全；实际 ZIP 为 3,065,980 字节，SHA-256 为 `7ecb8c6211bb7220c4ba4e2ddec634f4e818445824a798ab1e1f21c6ccbe16d5`。四份 feed／ZIP 公钥签名、latest 与标签 feed 一致、当前三语说明、最终 ZIP 严格 deep codesign、版本／资源均通过，证据 `build/published-v2.0.5/verification.json`；仍为 ad-hoc 签名、未公证。安装更新由用户自行完成；此前 `v2.0.2` 最终结果由用户自行核对。

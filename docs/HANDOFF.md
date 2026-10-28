@@ -22,7 +22,7 @@
 
 ## 3. 内置地址与本机私有资料
 
-`./build.sh` 从成对环境变量 `KISS_STREAM_URL` / `CNR_STREAM_URL`（优先）或被忽略的 `private/builtin-streams.json`（0600）读取完整输入。Actions 继续只需要原有两个地址 Secrets，禁止本地回退。
+`./build.sh` 从成对环境变量 `KISS_STREAM_URL` / `CNR_STREAM_URL`（优先）或被忽略的 `private/builtin-streams.json`（0600）读取完整输入。当前 Actions 发布流程接收已构建的公证包，不再运行构建或读取这两个地址 Secrets。
 
 生成器每次使用独立随机 AES-256 密钥和 GCM nonce，加密原始 JSON；密钥随机置换并用随机掩码拆分，生成 `BuiltinStreamKey.swift`。密文 `builtin-streams.bin` 与源码在独占生成目录中成对原子更新，失败保留前一组；生成目录含其他文件则拒绝覆盖。CLT 构建在临时目录生成并清理，Xcode 在编译前写入 DerivedSources，SwiftPM 按 [源码编译指南](BUILD.md) 预生成被忽略的 `Sources/RadioBar/Generated/`。只有密文进入资源，密钥材料编入程序，生成源码不打包、不提交。
 
@@ -139,5 +139,5 @@ loveRadio, classic947, radioParadise, grooveSalad, swissJazz
 - 独立“参与随机”及空候选处理；收藏、线路信息与手动切换的交互规则。
 - 地址验证／试播、JSON 导入导出及明确的合并／替换预览。
 - 错误反馈、编辑填写说明和睡眠预设的交互优化。
-- Developer ID／公证；真实后台更新、失败取消重试和当前 2.0 安装升级验收。
+- 公证发布流程的远端草稿与正式发布验收；真实后台更新、失败取消重试和当前 2.0 安装升级验收。
 - 与 iPhone v2 读取端真实联调；本轮不修改其工作目录，不代发消息，不重新引入已取消的多 Mac 历史管理或同步诊断方案。

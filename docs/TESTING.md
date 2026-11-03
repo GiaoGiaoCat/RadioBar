@@ -8,7 +8,9 @@
 - 完整 `./test.sh` 在允许的本机环境通过，包含内置加密输入、固定线路、配置偏好、同步、音频逻辑、原生拖放及 Dock；日志 `build/release-2.0.8-tests.log`。首次沙箱内在现有文件协调保存断言失败，正常环境复验通过，未为此修改生产逻辑。
 - 设置预览完成，图片 `build/release-2.0.8-settings/`、日志 `build/release-2.0.8-settings.log`；实际查看简／繁／英文浅深色六张展开日志图，2.0.8（115）、当前版本标记及新日志完整。
 - `./Tools/Tests/test-playback.sh --network-fixed` **未通过**：KISS / 央广原生静音 AVPlayer 加载均报 `CoreMediaErrorDomain/-12312`，未达到连续五秒时间推进；快速切台后暂停取消检查通过。脱敏日志 `build/release-2.0.8-playback.log`。额外有界 HTTP 检查中，两项 HLS 媒体列表及首个分片返回 200、类型为 HLS / MPEG-TS；未输出地址或正文，HTTP 成功不能证明可播放，原因未确定。
-- 本轮沿用 Developer ID 签名、朋友协助公证和手动发布流程；本次公证、最终 ZIP、Sparkle 签名和正式发布仍待后续完成。未安装或进行真实出声／长期播放验收。
+- Developer ID 包从干净提交 `c740a6a16a150be06c37557bf16ac04ebda94805` 构建。公证提交 `9f3fa744-cc3f-4a8c-af6c-caaeb80ff522` 已 Accepted，完整日志与原 ZIP 摘要 `174a4655d8c22ffaf1257b0d5acaa34a9a37c2794dc7702dc8aac730192a94c4` 一致，`issues: null`。原包附加凭据后独立解压，严格 deep codesign、完整 Info.plist、arm64、Developer ID 团队、时间戳、运行时、公证凭据及 Gatekeeper 均通过；证据 `build/release-2.0.8/notary-log.json`、`finalize.log`、`notarized-verification.log`。
+- 最终 ZIP 为 3,202,057 字节，SHA-256 `7c0fe349fa2fc4b30e86456c27bd03377ce78e09f4290a79099b4eb9face754f`。四份 Sparkle feed／ZIP 独立验签通过，`test-updates.sh` 的发现更新／无更新、语言选源及篡改拒绝通过，发布顺序专项通过；日志 `build/release-2.0.8/update-signing.log`、`update-tests.log`。实际查看三语浅深色更新说明图片；原生窗口缓存存在部分控件／背景缺失，只证明说明内容与专项结果，不代表完整桌面 UI 验收。
+- [正式发布 Actions](https://github.com/GiaoGiaoCat/RadioBar/actions/runs/41613345254) 成功；[v2.0.8 Release](https://github.com/GiaoGiaoCat/RadioBar/releases/tag/v2.0.8) 于 2026-11-03 01:44:50（America/Los_Angeles）发布，非草稿且为 latest。六份公开附件与 GitHub 摘要、SHA256SUMS 和本地最终包一致；新编译 `VerifyUpdate` 对下载的四份 feed／ZIP 验签通过，latest 四份 feed 与版本附件逐字节一致，公开下载 ZIP 再次通过公证签名检查。证据 `build/published-v2.0.8-8w6jv0dr/verification.json`、`release.json`、`notarized-verification.log`。未安装、替换用户 App 或进行实际出声／长期播放验收。
 
 2026-10-28 本地公证流程：Developer ID 待提交 ZIP 从当前源码构建并解压严格验签，朋友报告公证通过，本机附加凭据后最终 ZIP 通过签名、公证和 Gatekeeper 检查；尚未取得朋友的公证日志。使用最终 ZIP 重新生成四份 Sparkle 签名更新源，`test-updates.sh` 的隔离发现更新、无更新及篡改拒绝通过。对比已存 2.0.5（112）正式包，bundle ID、更新公钥及两项签名设置与 2.0.7（114）一致。
 

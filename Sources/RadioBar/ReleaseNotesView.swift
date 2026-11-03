@@ -11,6 +11,9 @@ struct RadioReleaseNote: Identifiable {
 /// Detailed 1.x records remain only in the local pre-reinitialization backup.
 enum RadioReleaseNotes {
     static let entries: [RadioReleaseNote] = [
+        RadioReleaseNote(version: "2.0.8", title: RadioText("2.0.8", "2.0.8"), changes: [
+            RadioText("更新 KISS 电台的内置播放地址。", "Update the bundled stream address for KISS Station."),
+        ]),
         RadioReleaseNote(version: "2.0.7", title: RadioText("2.0.7", "2.0.7"), changes: [
             RadioText("移除主菜单按钮的蓝色键盘焦点框，保留键盘操作、菜单样式、文字行高和内部间距。", "Remove blue keyboard focus rings from main menu buttons while preserving keyboard controls, menu styling, text row heights and internal spacing."),
         ]),
